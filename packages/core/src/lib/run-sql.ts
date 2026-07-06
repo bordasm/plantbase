@@ -1,13 +1,4 @@
-import pg from 'pg'
-
-const { Pool } = pg
-
-let pool: InstanceType<typeof Pool> | undefined
-
-function getPool(): InstanceType<typeof Pool> {
-  pool ??= new Pool({ connectionString: process.env.DATABASE_URL_READONLY })
-  return pool
-}
+import { getReadOnlyPool } from './db-pool.js'
 
 const FORBIDDEN_KEYWORDS =
   /\b(insert|update|delete|drop|alter|truncate|create|grant|revoke|copy|call|do|vacuum|explain)\b/i
@@ -33,8 +24,10 @@ export function assertSelectOnly(query: string): void {
   }
 }
 
-export async function runSql(query: string): Promise<Record<string, unknown>[]> {
+export async function runSql(
+  query: string,
+): Promise<Record<string, unknown>[]> {
   assertSelectOnly(query)
-  const result = await getPool().query(query)
+  const result = await getReadOnlyPool().query(query)
   return result.rows
 }

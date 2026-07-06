@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { listCategories } from './list-categories.js'
 import { logInteraction } from './logger.js'
 import { runSql } from './run-sql.js'
 import { SYSTEM_PROMPT } from './system-prompt.js'
@@ -20,6 +21,16 @@ const RUN_SQL_TOOL: Anthropic.Tool = {
       },
     },
     required: ['query'],
+  },
+}
+
+const LIST_CATEGORIES_TOOL: Anthropic.Tool = {
+  name: 'listCategories',
+  description:
+    'A katalógusban ténylegesen szereplő kategóriák listázása. Paramétert nem vár.',
+  input_schema: {
+    type: 'object',
+    properties: {},
   },
 }
 
@@ -52,7 +63,7 @@ export async function askAgent(question: string): Promise<AskAgentResult> {
       model: MODEL,
       max_tokens: MAX_TOKENS,
       system: SYSTEM_PROMPT,
-      tools: [RUN_SQL_TOOL],
+      tools: [RUN_SQL_TOOL, LIST_CATEGORIES_TOOL],
       messages,
     })
 
@@ -74,16 +85,23 @@ export async function askAgent(question: string): Promise<AskAgentResult> {
 
     const toolResults: Anthropic.ToolResultBlockParam[] = []
     for (const block of response.content) {
-      if (block.type !== 'tool_use' || block.name !== 'runSql') continue
+      if (block.type !== 'tool_use') continue
 
-      const { query } = block.input as { query: string }
-      generatedSql.push(query)
       try {
-        const rows = await runSql(query)
+        let content: string
+        if (block.name === 'runSql') {
+          const { query } = block.input as { query: string }
+          generatedSql.push(query)
+          content = JSON.stringify(await runSql(query))
+        } else if (block.name === 'listCategories') {
+          content = JSON.stringify(await listCategories())
+        } else {
+          throw new Error(`Ismeretlen tool: ${block.name}`)
+        }
         toolResults.push({
           type: 'tool_result',
           tool_use_id: block.id,
-          content: JSON.stringify(rows),
+          content,
         })
       } catch (err) {
         toolResults.push({
