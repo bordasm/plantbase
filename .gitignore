@@ -2,9 +2,31 @@
 node_modules/
 dist/
 tmp/
+out-tsc/
 .env
 .env.local
 logs/
-.nx/cache/
-.nx/workspace-data/
 *.log
+
+# Nx
+.nx/cache
+.nx/workspace-data
+.nx/polygraph
+.nx/self-healing
+.nx/migrate-runs
+
+# Vite/Vitest
+vite.config.*.timestamp*
+vitest.config.*.timestamp*
+
+# IDE
+/.idea
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# System
+.DS_Store
+Thumbs.db
