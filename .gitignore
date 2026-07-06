@@ -1,0 +1,10 @@
+.claude/settings.local.json
+node_modules/
+dist/
+tmp/
+.env
+.env.local
+logs/
+.nx/cache/
+.nx/workspace-data/
+*.log
