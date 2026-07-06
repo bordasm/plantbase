@@ -1,26 +1,101 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { logInteraction } from './logger.js'
+import { runSql } from './run-sql.js'
+import { SYSTEM_PROMPT } from './system-prompt.js'
 
 const MODEL = 'claude-sonnet-5'
+const MAX_TOKENS = 1024
+const MAX_TOOL_ROUNDS = 5
 
-// B2 ideiglenes, szűkített system prompt (LLM, DB nélkül): a teljes,
-// runSql toolt is ismertető system-prompt.md-beli verzió a B3 fázisban kerül be.
-const SYSTEM_PROMPT = `Te a Plantbase asszisztens vagy: egy növény-katalógus feletti kérdés-válasz agent.
-Jelenleg NINCS adatbázis-hozzáférésed. Ha a felhasználó konkrét növényre, árra, készletre vagy más
-katalógusadatra kérdez, mondd meg őszintén, hogy ezt most nem éred el -- ne találj ki adatot.
-Általános, a katalógustól független kérdésre (pl. növénygondozási tanács) válaszolhatsz normálisan.`
+const RUN_SQL_TOOL: Anthropic.Tool = {
+  name: 'runSql',
+  description:
+    'Read-only SQL (csak SELECT) lefuttatása a products katalóguson, és a sorok visszaadása.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      query: {
+        type: 'string',
+        description: 'A futtatandó SELECT SQL lekérdezés.',
+      },
+    },
+    required: ['query'],
+  },
+}
 
-export async function askAgent(question: string): Promise<string> {
-  const client = new Anthropic()
+export interface AskAgentResult {
+  answer: string
+  systemPrompt: string
+  messages: Anthropic.MessageParam[]
+  generatedSql: string[]
+  usage: { inputTokens: number; outputTokens: number }
+}
 
-  const message = await client.messages.create({
-    model: MODEL,
-    max_tokens: 1024,
-    system: SYSTEM_PROMPT,
-    messages: [{ role: 'user', content: question }],
-  })
-
-  return message.content
+function extractText(content: Anthropic.ContentBlock[]): string {
+  return content
     .map((block) => (block.type === 'text' ? block.text : ''))
     .filter(Boolean)
     .join('\n')
+}
+
+export async function askAgent(question: string): Promise<AskAgentResult> {
+  const client = new Anthropic()
+  const messages: Anthropic.MessageParam[] = [
+    { role: 'user', content: question },
+  ]
+  const generatedSql: string[] = []
+  let inputTokens = 0
+  let outputTokens = 0
+
+  for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+    const response = await client.messages.create({
+      model: MODEL,
+      max_tokens: MAX_TOKENS,
+      system: SYSTEM_PROMPT,
+      tools: [RUN_SQL_TOOL],
+      messages,
+    })
+
+    inputTokens += response.usage.input_tokens
+    outputTokens += response.usage.output_tokens
+    messages.push({ role: 'assistant', content: response.content })
+
+    if (response.stop_reason !== 'tool_use') {
+      const result: AskAgentResult = {
+        answer: extractText(response.content),
+        systemPrompt: SYSTEM_PROMPT,
+        messages,
+        generatedSql,
+        usage: { inputTokens, outputTokens },
+      }
+      await logInteraction({ timestamp: new Date().toISOString(), ...result })
+      return result
+    }
+
+    const toolResults: Anthropic.ToolResultBlockParam[] = []
+    for (const block of response.content) {
+      if (block.type !== 'tool_use' || block.name !== 'runSql') continue
+
+      const { query } = block.input as { query: string }
+      generatedSql.push(query)
+      try {
+        const rows = await runSql(query)
+        toolResults.push({
+          type: 'tool_result',
+          tool_use_id: block.id,
+          content: JSON.stringify(rows),
+        })
+      } catch (err) {
+        toolResults.push({
+          type: 'tool_result',
+          tool_use_id: block.id,
+          content: err instanceof Error ? err.message : String(err),
+          is_error: true,
+        })
+      }
+    }
+    messages.push({ role: 'user', content: toolResults })
+  }
+
+  throw new Error('Túl sok tool-use kör, nem sikerült végleges választ adni.')
 }

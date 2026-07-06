@@ -1,4 +1,4 @@
-import { askAgent } from '@plantbase/core'
+import { askAgent, type AskAgentResult } from '@plantbase/core'
 import { Command } from 'commander'
 import { createInterface } from 'node:readline'
 import { z } from 'zod'
@@ -19,17 +19,30 @@ function validate(question: string): string {
   return result.data
 }
 
-async function runAsk(question: string): Promise<void> {
+function printResult(result: AskAgentResult, showPrompt: boolean): void {
+  if (showPrompt) {
+    console.log('--- system prompt ---')
+    console.log(result.systemPrompt)
+    console.log('--- üzenetek ---')
+    console.log(JSON.stringify(result.messages, null, 2))
+    console.log('--- válasz ---')
+  }
+  console.log(result.answer)
+}
+
+async function runAsk(question: string, _options: unknown, command: Command): Promise<void> {
   try {
     const validated = validate(question)
-    console.log(await askAgent(validated))
+    const showPrompt = Boolean(command.optsWithGlobals().showPrompt)
+    printResult(await askAgent(validated), showPrompt)
   } catch (err) {
     console.error(err instanceof Error ? err.message : String(err))
     process.exitCode = 1
   }
 }
 
-function runInteractive(): void {
+function runInteractive(_options: unknown, command: Command): void {
+  const showPrompt = Boolean(command.optsWithGlobals().showPrompt)
   console.log('Plantbase interaktív mód. Írj "exit"-et a kilépéshez.')
   const rl = createInterface({
     input: process.stdin,
@@ -57,7 +70,7 @@ function runInteractive(): void {
     queue = queue.then(async () => {
       try {
         const validated = validate(line)
-        console.log(await askAgent(validated))
+        printResult(await askAgent(validated), showPrompt)
       } catch (err) {
         console.error(err instanceof Error ? err.message : String(err))
       }
@@ -71,10 +84,11 @@ program
   .name('plantbase')
   .description('Plantbase — CLI AI agent a növény-katalógushoz')
   .version('0.0.1')
+  .option('--show-prompt', 'a teljes üzenet-tömb kiírása a válasz mellett')
 
 program
   .command('ask <question>')
-  .description('Egyszeri kérdés (LLM-mel válaszol, DB-hozzáférés nélkül)')
+  .description('Egyszeri kérdés (LLM + read-only SQL a katalóguson)')
   .action(runAsk)
 
 program.action(runInteractive)
