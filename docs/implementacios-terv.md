@@ -16,17 +16,20 @@
 **Mérföldkő:** a projekt fut és tesztelhető — Nx monorepo áll, a DB séma migrálva és seedelve, a CLI elindul.
 
 ### A0 — Repo alapok
+
 - `git init`, gyökér `.gitignore` (node_modules, dist, .env, logs/), root `README.md` (rövid, a `docs/`-ra mutat).
 - Teszt: `git status` tiszta, `git log` egy kezdő commitot mutat.
 - Commit: `chore: init repository`
 
 ### A1 — Nx workspace (pnpm)
+
 - Context7: Nx TypeScript-template workspace generálás.
 - `npx create-nx-workspace@latest plantbase --template=nrwl/typescript-template --packageManager=pnpm` (a projekt gyökerén, `docs/` és `seed/` megtartásával — becsomagolva/összefésülve, nem felülírva).
 - Teszt: `pnpm nx --version`, `pnpm install` hiba nélkül lefut.
 - Commit: `chore: scaffold nx workspace with pnpm`
 
 ### A2 — packages/db (Prisma 6 lib)
+
 - Context7: Prisma 6 schema.prisma + `prisma migrate dev` friss doksi.
 - `@nx/js:lib packages/db --bundler=tsc --unitTestRunner=none` generálás, majd `pnpm add -D prisma`, `pnpm add @prisma/client` a libbe; `prisma init` a lib alá.
 - `schema.prisma`: `products` modell a `stack.md` séma szerint (mezőnevek, típusok, értékkészletek kommentben).
@@ -36,6 +39,7 @@
 - Commit: `feat: add prisma db package with products schema`
 
 ### A3 — Seed betöltése (a meglévő adatból, nem generálunk újat)
+
 - A meglévő `seed/plants.ts` + `seed/seed.ts` átmásolása a `packages/db/prisma/`-ba (a `seed/README.md` instrukciója szerint).
 - `package.json` (db lib): `"prisma": { "seed": "tsx prisma/seed.ts" }`.
 - Teszt: `pnpm prisma db seed` → „Seed kész: 30 növény betöltve.", `SELECT count(*) FROM products;` = 30.
@@ -43,12 +47,14 @@
 - (A gyökér `seed/` mappa ezután törölhető, mert a tartalma bekerült a `packages/db`-be — jóváhagyás után külön lépésben.)
 
 ### A4 — packages/core csontváz
+
 - `@nx/js:lib packages/core --bundler=tsc --unitTestRunner=vitest --linter=eslint`.
 - Egyelőre üres/placeholder публic API (pl. egy `ping()` export), hogy a build/teszt gépezet igazoltan működjön — az agent-logika a B) részben kerül bele.
 - Teszt: `pnpm nx test core` zöld, `pnpm nx build core` hiba nélkül.
 - Commit: `chore: scaffold core package`
 
 ### A5 — apps/cli csontváz (elindul, de még nincs logika)
+
 - Context7: `@nx/node:application` generátor opciói.
 - `@nx/node:application apps/cli --bundler=esbuild --unitTestRunner=vitest --e2eTestRunner=none`, `commander` hozzáadása.
 - Egyetlen parancs egyelőre: `plantbase --version` (a `package.json` verzióját írja ki), a `core` package importálva (bizonyítva, hogy a projekt-referenciák működnek).
@@ -56,8 +62,9 @@
 - Commit: `feat: cli skeleton wired to core`
 
 ### A6 — Tooling zárás + hook
-- ESLint + Prettier root config (`konvenciok.md` szabályai: strict TS, naming stb.), `dev-workflow.md` szerinti `PostToolUse` hook (`settings.json`: prettier + `vitest related` Edit után).
-- Teszt: egy próba-szerkesztés után a hook lefut (prettier formáz, releváns teszt fut).
+
+- ESLint + Prettier root config (`konvenciok.md` szabályai: strict TS, naming stb.), `dev-workflow.md` szerinti `PostToolUse` hook (`.claude/settings.json`, Edit után: prettier a szerkesztett fájlon, majd a tulajdonos Nx projekt `test` targetje — a `vitest related` a workspace-aggregátorral megbízhatatlannak bizonyult, ezért projekt-szintű futtatásra váltottunk).
+- Teszt: egy próba-szerkesztés után a hook lefut (prettier formáz, a projekt tesztje fut).
 - Commit: `chore: eslint/prettier config + edit hooks`
 
 **A) lezárása:** `docker compose up -d && pnpm prisma migrate deploy && pnpm prisma db seed && pnpm nx serve cli -- --version` egy tiszta checkoutból végigfut. Ez a demózható „kész a környezet" állapot.

@@ -25,7 +25,7 @@
 - Ne nyeld el a hibát némán; UI-facing üzenet + szerver-oldali részletes log.
 - Validáció a rendszer-határokon (Zod), fail-fast, beszédes hibaüzenet.
   ```ts
-  const Input = z.object({ text: z.string().min(1) });
+  const Input = z.object({ text: z.string().min(1) })
   ```
 
 ## Tesztelés

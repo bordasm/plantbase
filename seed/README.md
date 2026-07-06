@@ -6,6 +6,7 @@ A `plantbase` katalógus indító adata, hogy induláskor ne kelljen generálni 
 - `seed.ts` — Prisma seed script: törli, majd betölti a növényeket (idempotens).
 
 ## Használat az induló projektben
+
 1. Másold a `plants.ts` + `seed.ts`-t a Prisma libbe (pl. `packages/db/prisma/`).
 2. `package.json`: `"prisma": { "seed": "tsx packages/db/prisma/seed.ts" }`.
 3. Migráció után: `pnpm prisma db seed`.

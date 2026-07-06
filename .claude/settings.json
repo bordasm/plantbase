@@ -1,0 +1,23 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/format-on-edit.mjs",
+            "timeout": 15,
+            "async": true
+          },
+          {
+            "type": "command",
+            "command": "node .claude/hooks/test-on-edit.mjs",
+            "timeout": 60,
+            "async": true
+          }
+        ]
+      }
+    ]
+  }
+}

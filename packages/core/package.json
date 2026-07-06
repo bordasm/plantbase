@@ -18,6 +18,8 @@
     "tslib": "^2.3.0"
   },
   "nx": {
-    "tags": ["scope:core"]
+    "tags": [
+      "scope:core"
+    ]
   }
 }
