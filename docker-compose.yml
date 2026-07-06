@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: plantbase
+      POSTGRES_PASSWORD: plantbase
+      POSTGRES_DB: plantbase
+    ports:
+      - '5432:5432'
+    volumes:
+      - plantbase_pgdata:/var/lib/postgresql/data
+      - ./docker/init-readonly-role.sql:/docker-entrypoint-initdb.d/init-readonly-role.sql:ro
+
+volumes:
+  plantbase_pgdata:

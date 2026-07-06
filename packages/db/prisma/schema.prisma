@@ -1,0 +1,38 @@
+// Plantbase — Prisma séma (products katalógus). Mezőnevek: lásd stack.md.
+// A mezőnevek szándékosan snake_case-ek (nem a szokásos Prisma camelCase),
+// mert így egyezik a meglévő seed adat (prisma/seed.ts + plants.ts) kulcsaival —
+// nem kellett a seedet átalakítani hozzá.
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Product {
+  id                 Int      @id @default(autoincrement())
+  name               String
+  latin_name         String
+  category           String // szobanövény | kerti | pozsgás | kaktusz | fűszer | fa-cserje | lógó | virágzó
+  location           String // beltéri | kültéri | mindkettő
+  price              Decimal  @db.Decimal(10, 2)
+  sale_price         Decimal? @db.Decimal(10, 2)
+  stock              Int
+  light              String // árnyék | alacsony | közepes | erős | direkt nap
+  watering           String // ritka | közepes | gyakori | állandóan nedves
+  difficulty         String // kezdő | haladó | profi
+  current_height_cm  Int
+  max_height_cm      Int
+  current_pot_cm     Int
+  pet_safe           Boolean
+  kid_safe           Boolean
+  air_purifying      Boolean
+  rating             Decimal  @db.Decimal(2, 1)
+  reviews_count      Int
+  description        String
+
+  @@map("products")
+}
