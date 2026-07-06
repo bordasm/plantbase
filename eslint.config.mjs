@@ -22,20 +22,18 @@ export default [
           allow: ['^.*/eslint(\\.base)?\\.config\\.[cm]?[jt]s$'],
           depConstraints: [
             {
-              sourceTag: 'scope:shared',
-              onlyDependOnLibsWithTags: ['scope:shared'],
+              // apps/cli: csak a core-ra épülhet, a Prisma-t (db) sosem éri el közvetlenül
+              // (architektura.md #2: az agent NEM Prismán kérdez).
+              sourceTag: 'scope:app',
+              onlyDependOnLibsWithTags: ['scope:core'],
             },
             {
-              sourceTag: 'scope:async',
-              onlyDependOnLibsWithTags: ['scope:shared', 'scope:async'],
+              sourceTag: 'scope:core',
+              onlyDependOnLibsWithTags: ['scope:core'],
             },
             {
-              sourceTag: 'scope:colors',
-              onlyDependOnLibsWithTags: ['scope:shared', 'scope:colors'],
-            },
-            {
-              sourceTag: 'scope:strings',
-              onlyDependOnLibsWithTags: ['scope:shared', 'scope:strings'],
+              sourceTag: 'scope:db',
+              onlyDependOnLibsWithTags: ['scope:db'],
             },
           ],
         },

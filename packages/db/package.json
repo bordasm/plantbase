@@ -24,5 +24,8 @@
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
+  },
+  "nx": {
+    "tags": ["scope:db"]
   }
 }
