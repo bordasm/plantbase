@@ -1,1 +1,1 @@
-export * from './lib/ping.js'
+export * from './lib/ask-agent.js'

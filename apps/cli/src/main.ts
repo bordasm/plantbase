@@ -1,10 +1,17 @@
+import { askAgent } from '@plantbase/core'
 import { Command } from 'commander'
 import { createInterface } from 'node:readline'
 import { z } from 'zod'
 
+try {
+  process.loadEnvFile()
+} catch (err) {
+  if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err
+}
+
 const QuestionInput = z.string().trim().min(1, 'A kérdés nem lehet üres.')
 
-function echo(question: string): string {
+function validate(question: string): string {
   const result = QuestionInput.safeParse(question)
   if (!result.success) {
     throw new Error(result.error.issues[0].message)
@@ -12,9 +19,10 @@ function echo(question: string): string {
   return result.data
 }
 
-function runAsk(question: string): void {
+async function runAsk(question: string): Promise<void> {
   try {
-    console.log(echo(question))
+    const validated = validate(question)
+    console.log(await askAgent(validated))
   } catch (err) {
     console.error(err instanceof Error ? err.message : String(err))
     process.exitCode = 1
@@ -28,21 +36,33 @@ function runInteractive(): void {
     output: process.stdout,
     prompt: '> ',
   })
+  // EOF-nál (pipe-olt input) a readline magától, azonnal lezárja magát --
+  // ilyenkor a később lefutó válasz már nem hívhat prompt()-ot rajta.
+  let closed = false
+  rl.on('close', () => {
+    closed = true
+  })
+
   rl.prompt()
+  // Pipe-olt (nem-TTY) stdin esetén a readline egy körben, szinkronban adja ki
+  // az összes bufferelt sort -- pause()/resume() ezt nem állítja meg. Promise-
+  // lánccal soroljuk a feldolgozást, hogy a válaszok mindig sorrendhelyesek
+  // legyenek, és az "exit" is csak a folyamatban lévő kérdés után zárjon be.
+  let queue: Promise<void> = Promise.resolve()
   rl.on('line', (line) => {
     if (line.trim() === 'exit') {
-      rl.close()
+      void queue.then(() => rl.close())
       return
     }
-    try {
-      console.log(echo(line))
-    } catch (err) {
-      console.error(err instanceof Error ? err.message : String(err))
-    }
-    rl.prompt()
-  })
-  rl.on('close', () => {
-    process.exit(0)
+    queue = queue.then(async () => {
+      try {
+        const validated = validate(line)
+        console.log(await askAgent(validated))
+      } catch (err) {
+        console.error(err instanceof Error ? err.message : String(err))
+      }
+      if (!closed) rl.prompt()
+    })
   })
 }
 
@@ -54,7 +74,7 @@ program
 
 program
   .command('ask <question>')
-  .description('Egyszeri kérdés (egyelőre echo, LLM nélkül)')
+  .description('Egyszeri kérdés (LLM-mel válaszol, DB-hozzáférés nélkül)')
   .action(runAsk)
 
 program.action(runInteractive)
