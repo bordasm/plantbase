@@ -1,5 +1,7 @@
 # Plantbase
 
+Ez a repo az ** AI-ágensfejlesztés az alapoktól ** kurzus egyik elkészítendő feladatát tartalmazza.
+
 CLI AI agent, amely természetes nyelvű kérdést fordít SQL-re a növény-katalógus (`products`) felett, read-only lefuttatja, és természetes nyelvű választ ad.
 
 Dokumentáció: lásd a [`docs/`](docs/) mappát, kezdésnek:
