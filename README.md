@@ -1,6 +1,7 @@
 # Plantbase
 
-Ez a repo az ** AI-ágensfejlesztés az alapoktól ** kurzus egyik elkészítendő feladatát tartalmazza.
+Ez a repo az ** AI-ágensfejlesztés az alapoktól ** robot_dreams kurzus egyik elkészítendő feladatát tartalmazza.
+https://robotdreams.hu/
 
 CLI AI agent, amely természetes nyelvű kérdést fordít SQL-re a növény-katalógus (`products`) felett, read-only lefuttatja, és természetes nyelvű választ ad.
 
