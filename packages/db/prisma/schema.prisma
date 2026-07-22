@@ -37,6 +37,10 @@ model Product {
   @@map("products")
 }
 
+// NOTE: embedding has a hand-authored HNSW index (see the add_knowledge_chunks
+// migration.sql) that Prisma's schema DSL cannot represent. Future `prisma
+// migrate dev` runs will detect this as drift and offer to DROP the index —
+// always decline that prompt; it is not a real schema mismatch.
 model KnowledgeChunk {
   id          Int    @id @default(autoincrement())
   source_file String
