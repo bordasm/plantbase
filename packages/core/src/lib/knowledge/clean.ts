@@ -55,7 +55,8 @@ function stripBoilerplateTail(body: string): string {
 }
 
 export function cleanDocument(raw: string): CleanedDocument {
-  const { fields, rest } = parseFrontmatter(raw)
+  const normalized = raw.replace(/\r\n/g, '\n')
+  const { fields, rest } = parseFrontmatter(normalized)
   const title = fields.title ?? ''
   const withoutHeading = stripHeadingAndBreadcrumb(rest, title)
   const withoutTail = stripBoilerplateTail(withoutHeading)

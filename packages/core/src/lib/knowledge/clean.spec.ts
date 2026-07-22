@@ -60,6 +60,24 @@ describe('cleanDocument', () => {
     )
   })
 
+  it('handles CRLF line endings the same as LF', () => {
+    const crlfSample = SAMPLE.replace(/\n/g, '\r\n')
+    const result = cleanDocument(crlfSample)
+
+    expect(result.title).toBe('Best Time to Water Your Plants')
+    expect(result.sourceUrl).toBe(
+      'https://www.thesill.com/blogs/care-miscellaneous/best-time-to-water-your-plants',
+    )
+    expect(result.category).toBe('care-miscellaneous')
+    expect(result.body).not.toContain('# Best Time to Water Your Plants')
+    expect(result.body).not.toContain('Common Care Questions')
+    expect(result.body).not.toContain('Perfect Pairings')
+    expect(result.body).not.toContain('Do Some Plant Shopping')
+    expect(result.body).toBe(
+      'When watering your houseplants, keep in mind the time of day.',
+    )
+  })
+
   it('leaves the body unchanged when the boilerplate marker is absent', () => {
     const withoutBoilerplate = `---
 title: X
