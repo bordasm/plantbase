@@ -21,15 +21,23 @@ describe('SYSTEM_PROMPT', () => {
     expect(SYSTEM_PROMPT.startsWith('<role>')).toBe(true)
     expect(SYSTEM_PROMPT.endsWith('</tools>')).toBe(true)
 
-    for (const tag of ['role', 'task', 'schema', 'rules', 'behavior', 'tools']) {
+    for (const tag of [
+      'role',
+      'task',
+      'schema',
+      'rules',
+      'behavior',
+      'tools',
+    ]) {
       expect(SYSTEM_PROMPT).toContain(`<${tag}>`)
       expect(SYSTEM_PROMPT).toContain(`</${tag}>`)
     }
   })
 
-  it('mentions both tools that askAgent actually registers', () => {
+  it('mentions all three tools that askAgent actually registers', () => {
     expect(SYSTEM_PROMPT).toContain('runSql')
     expect(SYSTEM_PROMPT).toContain('listCategories')
+    expect(SYSTEM_PROMPT).toContain('searchKnowledge')
   })
 
   it('is a verbatim copy of the ```xml block in docs/system-prompt.md', () => {
