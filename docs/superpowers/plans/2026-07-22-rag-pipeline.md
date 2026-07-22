@@ -25,11 +25,13 @@
 ### Task 1: Tudásbázis-dokumentum tisztítása (`clean.ts`)
 
 **Files:**
+
 - Create: `packages/core/src/lib/knowledge/clean.ts`
 - Test: `packages/core/src/lib/knowledge/clean.spec.ts`
 - Modify: `packages/core/src/index.ts`
 
 **Interfaces:**
+
 - Produces: `export interface CleanedDocument { title: string; sourceUrl: string; category: string; body: string }`, `export function cleanDocument(raw: string): CleanedDocument`
 
 - [ ] **Step 1: Write the failing test**
@@ -224,11 +226,13 @@ git push
 ### Task 2: Determinisztikus chunkolás (`chunk.ts`)
 
 **Files:**
+
 - Create: `packages/core/src/lib/knowledge/chunk.ts`
 - Test: `packages/core/src/lib/knowledge/chunk.spec.ts`
 - Modify: `packages/core/src/index.ts`
 
 **Interfaces:**
+
 - Consumes: semmi (tiszta függvény, csak stringet kap)
 - Produces: `export interface ChunkOptions { targetWords: number; overlapWords: number }`, `export const DEFAULT_CHUNK_OPTIONS: ChunkOptions`, `export function chunkText(body: string, options?: ChunkOptions): string[]`
 
@@ -260,7 +264,12 @@ describe('chunkText', () => {
   })
 
   it('carries the trailing paragraph of a chunk into the start of the next chunk (overlap)', () => {
-    const paragraphs = ['P1 '.repeat(20), 'P2 '.repeat(20), 'P3 '.repeat(20), 'P4 '.repeat(20)]
+    const paragraphs = [
+      'P1 '.repeat(20),
+      'P2 '.repeat(20),
+      'P3 '.repeat(20),
+      'P4 '.repeat(20),
+    ]
     const body = paragraphs.join('\n\n')
 
     const chunks = chunkText(body, { targetWords: 40, overlapWords: 20 })
@@ -270,9 +279,9 @@ describe('chunkText', () => {
   })
 
   it('is deterministic: same input always produces the same output', () => {
-    const body = Array.from({ length: 5 }, (_, i) => `Paragraph number ${i}. `.repeat(10)).join(
-      '\n\n',
-    )
+    const body = Array.from({ length: 5 }, (_, i) =>
+      `Paragraph number ${i}. `.repeat(10),
+    ).join('\n\n')
 
     const first = chunkText(body)
     const second = chunkText(body)
@@ -284,7 +293,10 @@ describe('chunkText', () => {
     const sentence = 'This is one sentence about plant care. '
     const hugeParagraph = sentence.repeat(60)
 
-    const chunks = chunkText(hugeParagraph, { targetWords: 100, overlapWords: 10 })
+    const chunks = chunkText(hugeParagraph, {
+      targetWords: 100,
+      overlapWords: 10,
+    })
 
     expect(chunks.length).toBeGreaterThan(1)
   })
@@ -318,7 +330,10 @@ function splitIntoSentences(paragraph: string): string[] {
   return paragraph.split(/(?<=[.!?])\s+/).filter(Boolean)
 }
 
-function splitOversizedParagraph(paragraph: string, targetWords: number): string[] {
+function splitOversizedParagraph(
+  paragraph: string,
+  targetWords: number,
+): string[] {
   const sentences = splitIntoSentences(paragraph)
   const pieces: string[] = []
   let current: string[] = []
@@ -338,7 +353,10 @@ function splitOversizedParagraph(paragraph: string, targetWords: number): string
   return pieces
 }
 
-function takeOverlapParagraphs(paragraphs: string[], overlapWords: number): string[] {
+function takeOverlapParagraphs(
+  paragraphs: string[],
+  overlapWords: number,
+): string[] {
   const overlap: string[] = []
   let words = 0
   for (let i = paragraphs.length - 1; i >= 0 && words < overlapWords; i--) {
@@ -369,7 +387,10 @@ export function chunkText(
 
   for (const paragraph of paragraphs) {
     const paragraphWords = countWords(paragraph)
-    if (currentWords > 0 && currentWords + paragraphWords > options.targetWords) {
+    if (
+      currentWords > 0 &&
+      currentWords + paragraphWords > options.targetWords
+    ) {
       chunks.push(current.join('\n\n'))
       current = takeOverlapParagraphs(current, options.overlapWords)
       currentWords = countWords(current.join(' '))
@@ -410,10 +431,12 @@ git push
 ### Task 3: `knowledge_chunks` pgvector tábla (Prisma migráció)
 
 **Files:**
+
 - Modify: `packages/db/prisma/schema.prisma`
 - Create: `packages/db/prisma/migrations/<timestamp>_add_knowledge_chunks/migration.sql`
 
 **Interfaces:**
+
 - Produces: `knowledge_chunks` tábla (`id, source_file, title, source_url, category, chunk_index, content, embedding vector(1536)`), HNSW index `embedding <=> `-hez.
 
 - [ ] **Step 1: Add the model to schema.prisma**
@@ -495,6 +518,7 @@ git push
 ### Task 4: OpenAI embedding wrapper (`embed-openai.ts`)
 
 **Files:**
+
 - Modify: `packages/core/package.json` (új dependency)
 - Modify: `.env.example`
 - Create: `packages/core/src/lib/knowledge/embed-openai.ts`
@@ -502,6 +526,7 @@ git push
 - Modify: `packages/core/src/index.ts`
 
 **Interfaces:**
+
 - Produces: `export const EMBEDDING_MODEL = 'text-embedding-3-small'`, `export function embedTexts(texts: string[]): Promise<number[][]>`
 
 - [ ] **Step 1: Add the OpenAI SDK dependency**
@@ -561,7 +586,10 @@ describe('embedTexts', () => {
 
     await embedTexts(['alma'])
 
-    expect(create).toHaveBeenCalledWith({ model: EMBEDDING_MODEL, input: ['alma'] })
+    expect(create).toHaveBeenCalledWith({
+      model: EMBEDDING_MODEL,
+      input: ['alma'],
+    })
   })
 })
 ```
@@ -617,10 +645,12 @@ git push
 ### Task 5: HyDE hipotetikus válasz generálás (`hyde.ts`)
 
 **Files:**
+
 - Create: `packages/core/src/lib/knowledge/hyde.ts`
 - Test: `packages/core/src/lib/knowledge/hyde.spec.ts`
 
 **Interfaces:**
+
 - Produces: `export const HYDE_MODEL = 'gpt-5-mini'`, `export function generateHydeDocument(question: string): Promise<string>`
 
 > **Megjegyzés implementáláskor:** a `HYDE_MODEL` értékét (`'gpt-5-mini'`) az OpenAI aktuális dokumentációja (Context7) alapján erősítsd meg implementálás előtt — ha időközben más a jelenlegi "mini"-osztályú chat modell neve, azt írd a konstansba, a kód többi része változatlan marad.
@@ -654,7 +684,9 @@ describe('generateHydeDocument', () => {
   it('returns the generated hypothetical answer text', async () => {
     mockChatCompletion('A pozsgásokat ritkán kell öntözni.')
 
-    const result = await generateHydeDocument('Milyen gyakran öntözzem a pozsgásokat?')
+    const result = await generateHydeDocument(
+      'Milyen gyakran öntözzem a pozsgásokat?',
+    )
 
     expect(result).toBe('A pozsgásokat ritkán kell öntözni.')
   })
@@ -664,7 +696,9 @@ describe('generateHydeDocument', () => {
 
     await generateHydeDocument('kérdés')
 
-    expect(create).toHaveBeenCalledWith(expect.objectContaining({ model: HYDE_MODEL }))
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({ model: HYDE_MODEL }),
+    )
   })
 
   it('falls back to the original question if the model returns no content', async () => {
@@ -725,11 +759,13 @@ git push
 ### Task 6: Anthropic rerank (`rerank.ts`)
 
 **Files:**
+
 - Modify: `packages/core/package.json` (új dependency: `zod`)
 - Create: `packages/core/src/lib/knowledge/rerank.ts`
 - Test: `packages/core/src/lib/knowledge/rerank.spec.ts`
 
 **Interfaces:**
+
 - Produces: `export const RERANK_MODEL = 'claude-haiku-4-5-20251001'`, `export interface RerankCandidate { id: number; content: string }`, `export interface RerankScore { id: number; score: number }`, `export function rerankChunks(question: string, candidates: RerankCandidate[]): Promise<RerankScore[]>`
 
 - [ ] **Step 1: Add the zod dependency**
@@ -750,7 +786,14 @@ vi.mock('@anthropic-ai/sdk', () => ({
 
 function mockToolResponse(scores: { id: number; score: number }[]) {
   const create = vi.fn().mockResolvedValue({
-    content: [{ type: 'tool_use', id: 'tool_1', name: 'submitScores', input: { scores } }],
+    content: [
+      {
+        type: 'tool_use',
+        id: 'tool_1',
+        name: 'submitScores',
+        input: { scores },
+      },
+    ],
   })
   vi.mocked(Anthropic).mockImplementation(function AnthropicMock() {
     return { messages: { create } } as never
@@ -801,9 +844,9 @@ describe('rerankChunks', () => {
       return { messages: { create } } as never
     })
 
-    await expect(rerankChunks('kérdés', [{ id: 1, content: 'x' }])).rejects.toThrow(
-      'nem hívta meg',
-    )
+    await expect(
+      rerankChunks('kérdés', [{ id: 1, content: 'x' }]),
+    ).rejects.toThrow('nem hívta meg')
   })
 })
 ```
@@ -915,10 +958,12 @@ git push
 ### Task 7: Napló bővítése (`logger.ts`) — retrieval trace + warning log
 
 **Files:**
+
 - Modify: `packages/core/src/lib/logger.ts`
 - Modify: `packages/core/src/lib/logger.spec.ts`
 
 **Interfaces:**
+
 - Produces: `export interface RetrievalTrace { query: string; hydeText: string; candidateCount: number; scores: { id: number; score: number }[]; selectedChunkIds: number[]; found: boolean }`, `export interface WarningLogEntry { timestamp: string; event: string; message: string }`, `export function logWarning(entry: WarningLogEntry): Promise<void>`
 - Modifies: `InteractionLogEntry` — új kötelező mező: `retrieval: RetrievalTrace[]`
 
@@ -1064,14 +1109,24 @@ function getLogFileName(): string {
   return logFileName
 }
 
-export async function logInteraction(entry: InteractionLogEntry): Promise<void> {
+export async function logInteraction(
+  entry: InteractionLogEntry,
+): Promise<void> {
   await mkdir(LOG_DIR, { recursive: true })
-  await appendFile(join(LOG_DIR, getLogFileName()), `${JSON.stringify(entry)}\n`, 'utf-8')
+  await appendFile(
+    join(LOG_DIR, getLogFileName()),
+    `${JSON.stringify(entry)}\n`,
+    'utf-8',
+  )
 }
 
 export async function logWarning(entry: WarningLogEntry): Promise<void> {
   await mkdir(LOG_DIR, { recursive: true })
-  await appendFile(join(LOG_DIR, 'warnings.jsonl'), `${JSON.stringify(entry)}\n`, 'utf-8')
+  await appendFile(
+    join(LOG_DIR, 'warnings.jsonl'),
+    `${JSON.stringify(entry)}\n`,
+    'utf-8',
+  )
 }
 ```
 
@@ -1093,10 +1148,12 @@ git push
 ### Task 8: Orchesztráció (`search-knowledge.ts`)
 
 **Files:**
+
 - Create: `packages/core/src/lib/knowledge/search-knowledge.ts`
 - Test: `packages/core/src/lib/knowledge/search-knowledge.spec.ts`
 
 **Interfaces:**
+
 - Consumes: `getReadOnlyPool` (`../db-pool.js`), `logWarning`, `type RetrievalTrace` (`../logger.js`), `embedTexts` (`./embed-openai.js`), `generateHydeDocument` (`./hyde.js`), `rerankChunks` (`./rerank.js`)
 - Produces: `export const ANN_CANDIDATES = 20`, `export const RERANK_KEEP = 5`, `export const RERANK_THRESHOLD = 6`, `export interface KnowledgeChunkResult { title: string; sourceUrl: string; category: string; content: string }`, `export interface SearchKnowledgeResult { found: boolean; chunks: KnowledgeChunkResult[] }`, `export interface SearchKnowledgeOutput { result: SearchKnowledgeResult; trace: RetrievalTrace }`, `export function searchKnowledge(query: string): Promise<SearchKnowledgeOutput>`
 
@@ -1118,7 +1175,13 @@ vi.mock('./hyde.js', () => ({ generateHydeDocument: vi.fn() }))
 vi.mock('./rerank.js', () => ({ rerankChunks: vi.fn() }))
 
 function mockCandidates(
-  rows: { id: number; title: string; source_url: string; category: string; content: string }[],
+  rows: {
+    id: number
+    title: string
+    source_url: string
+    category: string
+    content: string
+  }[],
 ) {
   const query = vi.fn().mockResolvedValue({ rows })
   vi.mocked(getReadOnlyPool).mockReturnValue({ query } as never)
@@ -1143,9 +1206,27 @@ describe('searchKnowledge', () => {
 
   it('keeps only candidates scoring at or above the threshold, best first, capped at 5', async () => {
     mockCandidates([
-      { id: 1, title: 'A', source_url: 'urlA', category: 'plants-101', content: 'contentA' },
-      { id: 2, title: 'B', source_url: 'urlB', category: 'plants-101', content: 'contentB' },
-      { id: 3, title: 'C', source_url: 'urlC', category: 'plants-101', content: 'contentC' },
+      {
+        id: 1,
+        title: 'A',
+        source_url: 'urlA',
+        category: 'plants-101',
+        content: 'contentA',
+      },
+      {
+        id: 2,
+        title: 'B',
+        source_url: 'urlB',
+        category: 'plants-101',
+        content: 'contentB',
+      },
+      {
+        id: 3,
+        title: 'C',
+        source_url: 'urlC',
+        category: 'plants-101',
+        content: 'contentC',
+      },
     ])
     vi.mocked(rerankChunks).mockResolvedValue([
       { id: 1, score: 4 },
@@ -1161,7 +1242,13 @@ describe('searchKnowledge', () => {
 
   it('returns found:false when every candidate scores below the threshold', async () => {
     mockCandidates([
-      { id: 1, title: 'A', source_url: 'urlA', category: 'plants-101', content: 'x' },
+      {
+        id: 1,
+        title: 'A',
+        source_url: 'urlA',
+        category: 'plants-101',
+        content: 'x',
+      },
     ])
     vi.mocked(rerankChunks).mockResolvedValue([{ id: 1, score: 2 }])
 
@@ -1177,19 +1264,31 @@ describe('searchKnowledge', () => {
     await searchKnowledge('öntözés?')
 
     expect(embedTexts).toHaveBeenCalledWith(['öntözés?'])
-    expect(logWarning).toHaveBeenCalledWith(expect.objectContaining({ event: 'hyde_failed' }))
+    expect(logWarning).toHaveBeenCalledWith(
+      expect.objectContaining({ event: 'hyde_failed' }),
+    )
     expect(query).toHaveBeenCalled()
   })
 
   it('falls back to ANN order when rerank fails, and logs a warning', async () => {
-    mockCandidates([{ id: 1, title: 'A', source_url: 'urlA', category: 'plants-101', content: 'x' }])
+    mockCandidates([
+      {
+        id: 1,
+        title: 'A',
+        source_url: 'urlA',
+        category: 'plants-101',
+        content: 'x',
+      },
+    ])
     vi.mocked(rerankChunks).mockRejectedValue(new Error('rerank down'))
 
     const { result } = await searchKnowledge('öntözés?')
 
     expect(result.found).toBe(true)
     expect(result.chunks[0].title).toBe('A')
-    expect(logWarning).toHaveBeenCalledWith(expect.objectContaining({ event: 'rerank_failed' }))
+    expect(logWarning).toHaveBeenCalledWith(
+      expect.objectContaining({ event: 'rerank_failed' }),
+    )
   })
 })
 ```
@@ -1238,7 +1337,9 @@ interface CandidateRow {
   content: string
 }
 
-export async function searchKnowledge(query: string): Promise<SearchKnowledgeOutput> {
+export async function searchKnowledge(
+  query: string,
+): Promise<SearchKnowledgeOutput> {
   let hydeText: string
   try {
     hydeText = await generateHydeDocument(query)
@@ -1281,7 +1382,10 @@ export async function searchKnowledge(query: string): Promise<SearchKnowledgeOut
   try {
     scores = await rerankChunks(
       query,
-      candidates.map((candidate) => ({ id: candidate.id, content: candidate.content })),
+      candidates.map((candidate) => ({
+        id: candidate.id,
+        content: candidate.content,
+      })),
     )
   } catch (err) {
     await logWarning({
@@ -1346,44 +1450,31 @@ git push
 
 ---
 
-### Task 9: Ingestion script (`seed-knowledge.ts`)
+### Task 9: Dokumentum-betöltés (`load-documents.ts`)
+
+> **Miért itt, nem a `packages/db`-ben?** A `packages/db`-nek nincs Vitest/Nx `test` targetje (nincs `vitest.config.mts`, a `tsconfig.lib.json` sem foglalja magába a `prisma/` mappát) — egy ottani spec fájl futtathatatlan lenne. A tiszta fájl-beolvasás+tisztítás+chunkolás logika I/O-mentes lényege (a Prisma/embedding hívások nélkül) ezért a már tesztelt `packages/core`-ba kerül; a `packages/db/prisma/seed-knowledge.ts` (Task 10) ezt importálja, és — a már meglévő, teszt nélküli `seed.ts` mintáját követve — csak a Prisma-specifikus írást végzi, automatizált teszt nélkül.
 
 **Files:**
-- Modify: `packages/db/package.json` (új dependency: `@plantbase/core`)
-- Create: `packages/db/prisma/seed-knowledge.ts`
-- Test: `packages/db/prisma/seed-knowledge.spec.ts`
+
+- Create: `packages/core/src/lib/knowledge/load-documents.ts`
+- Test: `packages/core/src/lib/knowledge/load-documents.spec.ts`
+- Modify: `packages/core/src/index.ts`
 
 **Interfaces:**
-- Consumes: `cleanDocument`, `chunkText`, `embedTexts` (`@plantbase/core`)
-- Produces: `export interface PendingChunk { sourceFile: string; title: string; sourceUrl: string; category: string; chunkIndex: number; content: string }`, `export function loadPendingChunks(dir: string): Promise<PendingChunk[]>`
 
-- [ ] **Step 1: Add the core package as a dependency of db**
+- Consumes: `cleanDocument` (`./clean.js`), `chunkText` (`./chunk.js`)
+- Produces: `export interface PendingChunk { sourceFile: string; title: string; sourceUrl: string; category: string; chunkIndex: number; content: string }`, `export function loadKnowledgeDocuments(dir: string): Promise<PendingChunk[]>`
 
-```json
-// packages/db/package.json — a "dependencies" blokk:
-"dependencies": {
-  "@plantbase/core": "workspace:*",
-  "@prisma/client": "6.19.2",
-  "tslib": "^2.3.0"
-},
-```
-
-Run: `pnpm install`
-Expected: `node_modules/@plantbase/core` symlinkelve a workspace package-re.
-
-Run: `npx nx build core`
-Expected: `packages/core/dist/index.js` létrejön (a `seed-knowledge.ts` ezt importálja `tsx`-en keresztül).
-
-- [ ] **Step 2: Write the failing test**
+- [ ] **Step 1: Write the failing test**
 
 ```ts
-// packages/db/prisma/seed-knowledge.spec.ts
+// packages/core/src/lib/knowledge/load-documents.spec.ts
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { loadPendingChunks } from './seed-knowledge.js'
+import { loadKnowledgeDocuments } from './load-documents.js'
 
-describe('loadPendingChunks', () => {
+describe('loadKnowledgeDocuments', () => {
   let dir: string
 
   beforeEach(async () => {
@@ -1417,7 +1508,7 @@ Ignore this.
 `,
     )
 
-    const result = await loadPendingChunks(dir)
+    const result = await loadKnowledgeDocuments(dir)
 
     expect(result).toHaveLength(1)
     expect(result[0]).toMatchObject({
@@ -1434,35 +1525,26 @@ Ignore this.
   it('only reads .md files', async () => {
     await writeFile(join(dir, 'notes.txt'), 'irrelevant')
 
-    const result = await loadPendingChunks(dir)
+    const result = await loadKnowledgeDocuments(dir)
 
     expect(result).toEqual([])
   })
 })
 ```
 
-- [ ] **Step 3: Run test to verify it fails**
+- [ ] **Step 2: Run test to verify it fails**
 
-Run: `npx nx test db` (ha nincs `test` target regisztrálva a `db`-hez, futtasd: `npx vitest run packages/db/prisma/seed-knowledge.spec.ts` a repo gyökeréből)
-Expected: FAIL — `Cannot find module './seed-knowledge.js'`
+Run: `npx nx test core`
+Expected: FAIL — `Cannot find module './load-documents.js'`
 
-- [ ] **Step 4: Write the implementation**
+- [ ] **Step 3: Write minimal implementation**
 
 ```ts
-// packages/db/prisma/seed-knowledge.ts
-// Egyszeri (újrafuttatható) betöltő: seed/knowledge/*.md -> tisztítás -> chunkolás ->
-// embedding -> knowledge_chunks tábla.
-// Futtatás (a packages/db könyvtárból): `npx tsx prisma/seed-knowledge.ts`
-// Előfeltétel: `npx nx build core` (a @plantbase/core dist kimenetét használja),
-// és a knowledge_chunks migráció már alkalmazva van.
-
+// packages/core/src/lib/knowledge/load-documents.ts
 import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { chunkText, cleanDocument, embedTexts } from '@plantbase/core'
-import { PrismaClient } from '@prisma/client'
-
-const KNOWLEDGE_DIR = join(process.cwd(), '../../seed/knowledge')
-const BATCH_SIZE = 50
+import { chunkText } from './chunk.js'
+import { cleanDocument } from './clean.js'
 
 export interface PendingChunk {
   sourceFile: string
@@ -1473,7 +1555,9 @@ export interface PendingChunk {
   content: string
 }
 
-export async function loadPendingChunks(dir: string): Promise<PendingChunk[]> {
+export async function loadKnowledgeDocuments(
+  dir: string,
+): Promise<PendingChunk[]> {
   const files = (await readdir(dir)).filter((file) => file.endsWith('.md'))
   const pending: PendingChunk[] = []
 
@@ -1494,10 +1578,84 @@ export async function loadPendingChunks(dir: string): Promise<PendingChunk[]> {
   }
   return pending
 }
+```
+
+- [ ] **Step 4: Export from the package's public API**
+
+```ts
+// packages/core/src/index.ts
+export * from './lib/ask-agent.js'
+export * from './lib/knowledge/clean.js'
+export * from './lib/knowledge/chunk.js'
+export * from './lib/knowledge/embed-openai.js'
+export * from './lib/knowledge/load-documents.js'
+```
+
+- [ ] **Step 5: Run test to verify it passes**
+
+Run: `npx nx test core`
+Expected: PASS (2/2 tests in `load-documents.spec.ts`)
+
+- [ ] **Step 6: Commit and push**
+
+```bash
+git add packages/core/src/lib/knowledge/load-documents.ts packages/core/src/lib/knowledge/load-documents.spec.ts packages/core/src/index.ts
+git commit -m "feat: add knowledge document loader (clean+chunk file wiring)"
+git push
+```
+
+---
+
+### Task 10: Ingestion script (`seed-knowledge.ts`)
+
+**Files:**
+
+- Modify: `packages/db/package.json` (új dependency: `@plantbase/core`)
+- Create: `packages/db/prisma/seed-knowledge.ts`
+
+**Interfaces:**
+
+- Consumes: `loadKnowledgeDocuments`, `embedTexts` (`@plantbase/core`)
+
+- [ ] **Step 1: Add the core package as a dependency of db**
+
+```json
+// packages/db/package.json — a "dependencies" blokk:
+"dependencies": {
+  "@plantbase/core": "workspace:*",
+  "@prisma/client": "6.19.2",
+  "tslib": "^2.3.0"
+},
+```
+
+Run: `pnpm install`
+Expected: `node_modules/@plantbase/core` symlinkelve a workspace package-re.
+
+Run: `npx nx build core`
+Expected: `packages/core/dist/index.js` létrejön (a `seed-knowledge.ts` ezt importálja `tsx`-en keresztül).
+
+- [ ] **Step 2: Write the implementation**
+
+Ez a script — a meglévő, szintén automatizált teszt nélküli `packages/db/prisma/seed.ts` mintáját követve — csak manuálisan verifikált (lásd Step 3).
+
+```ts
+// packages/db/prisma/seed-knowledge.ts
+// Egyszeri (újrafuttatható) betöltő: seed/knowledge/*.md -> tisztítás -> chunkolás ->
+// embedding -> knowledge_chunks tábla.
+// Futtatás (a packages/db könyvtárból): `npx tsx prisma/seed-knowledge.ts`
+// Előfeltétel: `npx nx build core` (a @plantbase/core dist kimenetét használja),
+// és a knowledge_chunks migráció már alkalmazva van.
+
+import { join } from 'node:path'
+import { embedTexts, loadKnowledgeDocuments } from '@plantbase/core'
+import { PrismaClient } from '@prisma/client'
+
+const KNOWLEDGE_DIR = join(process.cwd(), '../../seed/knowledge')
+const BATCH_SIZE = 50
 
 async function main() {
   const prisma = new PrismaClient()
-  const pending = await loadPendingChunks(KNOWLEDGE_DIR)
+  const pending = await loadKnowledgeDocuments(KNOWLEDGE_DIR)
   await prisma.$executeRaw`DELETE FROM knowledge_chunks`
 
   let inserted = 0
@@ -1516,7 +1674,9 @@ async function main() {
   }
 
   const documentCount = new Set(pending.map((chunk) => chunk.sourceFile)).size
-  console.log(`Tudásbázis betöltve: ${inserted} chunk, ${documentCount} dokumentumból.`)
+  console.log(
+    `Tudásbázis betöltve: ${inserted} chunk, ${documentCount} dokumentumból.`,
+  )
   await prisma.$disconnect()
 }
 
@@ -1526,12 +1686,7 @@ main().catch((e) => {
 })
 ```
 
-- [ ] **Step 5: Run test to verify it passes**
-
-Run: `npx vitest run packages/db/prisma/seed-knowledge.spec.ts`
-Expected: PASS (2/2 tests)
-
-- [ ] **Step 6: Manual/demo test — the real ingestion (OpenAI + DB write)**
+- [ ] **Step 3: Manual/demo test — the real ingestion (OpenAI + DB write)**
 
 Run (a `packages/db` könyvtárból): `npx tsx prisma/seed-knowledge.ts`
 Expected: `Tudásbázis betöltve: <N> chunk, 202 dokumentumból.` console-üzenet.
@@ -1539,23 +1694,25 @@ Expected: `Tudásbázis betöltve: <N> chunk, 202 dokumentumból.` console-üzen
 Verify: `docker exec plantbase-postgres-1 psql -U plantbase -d plantbase -c "SELECT count(*) FROM knowledge_chunks;"`
 Expected: a betöltött chunk-szám > 0.
 
-- [ ] **Step 7: Commit and push**
+- [ ] **Step 4: Commit and push**
 
 ```bash
-git add packages/db/package.json pnpm-lock.yaml packages/db/prisma/seed-knowledge.ts packages/db/prisma/seed-knowledge.spec.ts
+git add packages/db/package.json pnpm-lock.yaml packages/db/prisma/seed-knowledge.ts
 git commit -m "feat: add knowledge base ingestion script"
 git push
 ```
 
 ---
 
-### Task 10: `searchKnowledge` tool bekötése az `askAgent`-be
+### Task 11: `searchKnowledge` tool bekötése az `askAgent`-be
 
 **Files:**
+
 - Modify: `packages/core/src/lib/ask-agent.ts`
 - Modify: `packages/core/src/lib/ask-agent.spec.ts`
 
 **Interfaces:**
+
 - Consumes: `searchKnowledge` (`./knowledge/search-knowledge.js`), `type RetrievalTrace` (`./logger.js`)
 - Modifies: `AskAgentResult` — új mező: `retrieval: RetrievalTrace[]`
 
@@ -1570,33 +1727,46 @@ vi.mock('./knowledge/search-knowledge.js', () => ({
 }))
 
 // ...és egy új `it` blokk a fájl végén, a `describe('askAgent', ...)` zárása előtt:
-  it('runs the searchKnowledge tool and threads the retrieval trace into the result', async () => {
-    vi.mocked(searchKnowledge).mockResolvedValue({
-      result: {
-        found: true,
-        chunks: [{ title: 'Kaktusz gondozás', sourceUrl: 'https://example.com/x', category: 'plants-101', content: 'öntözés ritkán' }],
-      },
-      trace: {
-        query: 'Milyen gyakran öntözzem a kaktuszt?',
-        hydeText: 'hipotetikus válasz',
-        candidateCount: 3,
-        scores: [{ id: 1, score: 9 }],
-        selectedChunkIds: [1],
-        found: true,
-      },
-    })
-    mockResponses([
-      toolUseResponse('searchKnowledge', { query: 'Milyen gyakran öntözzem a kaktuszt?' }),
-      textResponse('Ritkán öntözd. Források: Kaktusz gondozás (https://example.com/x)'),
-    ])
-
-    const result = await askAgent('Milyen gyakran öntözzem a kaktuszt?')
-
-    expect(searchKnowledge).toHaveBeenCalledWith('Milyen gyakran öntözzem a kaktuszt?')
-    expect(result.retrieval).toHaveLength(1)
-    expect(result.retrieval[0].found).toBe(true)
-    expect(result.answer).toContain('Források')
+it('runs the searchKnowledge tool and threads the retrieval trace into the result', async () => {
+  vi.mocked(searchKnowledge).mockResolvedValue({
+    result: {
+      found: true,
+      chunks: [
+        {
+          title: 'Kaktusz gondozás',
+          sourceUrl: 'https://example.com/x',
+          category: 'plants-101',
+          content: 'öntözés ritkán',
+        },
+      ],
+    },
+    trace: {
+      query: 'Milyen gyakran öntözzem a kaktuszt?',
+      hydeText: 'hipotetikus válasz',
+      candidateCount: 3,
+      scores: [{ id: 1, score: 9 }],
+      selectedChunkIds: [1],
+      found: true,
+    },
   })
+  mockResponses([
+    toolUseResponse('searchKnowledge', {
+      query: 'Milyen gyakran öntözzem a kaktuszt?',
+    }),
+    textResponse(
+      'Ritkán öntözd. Források: Kaktusz gondozás (https://example.com/x)',
+    ),
+  ])
+
+  const result = await askAgent('Milyen gyakran öntözzem a kaktuszt?')
+
+  expect(searchKnowledge).toHaveBeenCalledWith(
+    'Milyen gyakran öntözzem a kaktuszt?',
+  )
+  expect(result.retrieval).toHaveLength(1)
+  expect(result.retrieval[0].found).toBe(true)
+  expect(result.answer).toContain('Források')
+})
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -1769,25 +1939,27 @@ git push
 
 ---
 
-### Task 11: System prompt bővítése (grounding + no-match viselkedés)
+### Task 12: System prompt bővítése (grounding + no-match viselkedés)
 
 **Files:**
+
 - Modify: `docs/system-prompt.md`
 - Modify: `packages/core/src/lib/system-prompt.ts`
 - Modify: `packages/core/src/lib/system-prompt.spec.ts`
 
 **Interfaces:**
+
 - Modifies: `SYSTEM_PROMPT` konstans tartalma (verbátim szinkronban a `docs/system-prompt.md` ```xml blokkjával)
 
 - [ ] **Step 1: Update the failing test (tool-name assertion)**
 
 ```ts
 // packages/core/src/lib/system-prompt.spec.ts — a 30-33. sorok cseréje:
-  it('mentions all three tools that askAgent actually registers', () => {
-    expect(SYSTEM_PROMPT).toContain('runSql')
-    expect(SYSTEM_PROMPT).toContain('listCategories')
-    expect(SYSTEM_PROMPT).toContain('searchKnowledge')
-  })
+it('mentions all three tools that askAgent actually registers', () => {
+  expect(SYSTEM_PROMPT).toContain('runSql')
+  expect(SYSTEM_PROMPT).toContain('listCategories')
+  expect(SYSTEM_PROMPT).toContain('searchKnowledge')
+})
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -1884,7 +2056,7 @@ git push
 
 ---
 
-### Task 12: End-to-end manuális demó teszt
+### Task 13: End-to-end manuális demó teszt
 
 **Files:** nincs kódváltoztatás — csak verifikáció.
 
@@ -1912,6 +2084,6 @@ Expected: mindkét interakció JSONL sorában szerepel a `retrieval` tömb (HyDE
 
 ## Self-Review Notes
 
-- **Spec coverage:** pgvector tábla (Task 3), OpenAI kis embedding modell (Task 4), HyDE (Task 5), rerank (Task 6), grounding + no-match (Task 8, 10, 11), multi-provider routing (Task 5 = OpenAI, Task 6 = Anthropic, Task 10 = Anthropic orchestráció), determinisztikus + tesztelt chunking (Task 1, 2), naplózás bővítése (Task 7), manuális E2E (Task 12) — mind lefedve.
+- **Spec coverage:** pgvector tábla (Task 3), OpenAI kis embedding modell (Task 4), HyDE (Task 5), rerank (Task 6), grounding + no-match (Task 8, 11, 12), multi-provider routing (Task 5 = OpenAI, Task 6 = Anthropic, Task 11 = Anthropic orchestráció), determinisztikus + tesztelt chunking (Task 1, 2), naplózás bővítése (Task 7), dokumentum-betöltés + ingestion (Task 9, 10), manuális E2E (Task 13) — mind lefedve.
 - **Type consistency:** `RetrievalTrace` egyetlen helyen (`logger.ts`) definiált, mindenhol onnan importálva (`search-knowledge.ts`, `ask-agent.ts`) — nincs duplikált/eltérő definíció, nincs kör-import (a `logger.ts` nem importál semmit a `knowledge/`-ból).
 - **Konstansok:** `EMBEDDING_MODEL`, `HYDE_MODEL`, `RERANK_MODEL`, `ANN_CANDIDATES`, `RERANK_KEEP`, `RERANK_THRESHOLD` mind egy-egy fájlban definiálva és onnan importálva, nincs kézzel duplikált szám máshol.
