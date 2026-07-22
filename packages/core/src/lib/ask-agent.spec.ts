@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { askAgent } from './ask-agent.js'
+import { searchKnowledge } from './knowledge/search-knowledge.js'
 import { listCategories } from './list-categories.js'
 import { logInteraction } from './logger.js'
 import { runSql } from './run-sql.js'
@@ -15,6 +16,9 @@ vi.mock('./run-sql.js', () => ({
 }))
 vi.mock('./list-categories.js', () => ({
   listCategories: vi.fn(),
+}))
+vi.mock('./knowledge/search-knowledge.js', () => ({
+  searchKnowledge: vi.fn(),
 }))
 
 function textResponse(text: string) {
@@ -106,5 +110,46 @@ describe('askAgent', () => {
     await expect(askAgent('Végtelen kör?')).rejects.toThrow(
       'Túl sok tool-use kör',
     )
+  })
+
+  it('runs the searchKnowledge tool and threads the retrieval trace into the result', async () => {
+    vi.mocked(searchKnowledge).mockResolvedValue({
+      result: {
+        found: true,
+        chunks: [
+          {
+            title: 'Kaktusz gondozás',
+            sourceUrl: 'https://example.com/x',
+            category: 'plants-101',
+            content: 'öntözés ritkán',
+          },
+        ],
+      },
+      trace: {
+        query: 'Milyen gyakran öntözzem a kaktuszt?',
+        hydeText: 'hipotetikus válasz',
+        candidateCount: 3,
+        scores: [{ id: 1, score: 9 }],
+        selectedChunkIds: [1],
+        found: true,
+      },
+    })
+    mockResponses([
+      toolUseResponse('searchKnowledge', {
+        query: 'Milyen gyakran öntözzem a kaktuszt?',
+      }),
+      textResponse(
+        'Ritkán öntözd. Források: Kaktusz gondozás (https://example.com/x)',
+      ),
+    ])
+
+    const result = await askAgent('Milyen gyakran öntözzem a kaktuszt?')
+
+    expect(searchKnowledge).toHaveBeenCalledWith(
+      'Milyen gyakran öntözzem a kaktuszt?',
+    )
+    expect(result.retrieval).toHaveLength(1)
+    expect(result.retrieval[0].found).toBe(true)
+    expect(result.answer).toContain('Források')
   })
 })

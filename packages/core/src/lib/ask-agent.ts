@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { searchKnowledge } from './knowledge/search-knowledge.js'
 import { listCategories } from './list-categories.js'
-import { logInteraction } from './logger.js'
+import { logInteraction, type RetrievalTrace } from './logger.js'
 import { runSql } from './run-sql.js'
 import { SYSTEM_PROMPT } from './system-prompt.js'
 
@@ -34,11 +35,28 @@ const LIST_CATEGORIES_TOOL: Anthropic.Tool = {
   },
 }
 
+const SEARCH_KNOWLEDGE_TOOL: Anthropic.Tool = {
+  name: 'searchKnowledge',
+  description:
+    'Növénygondozási tudásbázis (öntözés, fény, kártevők, egyéb gondozási témák) keresése a felhasználó kérdéséhez kapcsolódó cikk-részletek visszaadására.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      query: {
+        type: 'string',
+        description: 'A keresendő gondozási kérdés.',
+      },
+    },
+    required: ['query'],
+  },
+}
+
 export interface AskAgentResult {
   answer: string
   systemPrompt: string
   messages: Anthropic.MessageParam[]
   generatedSql: string[]
+  retrieval: RetrievalTrace[]
   usage: { inputTokens: number; outputTokens: number }
 }
 
@@ -55,6 +73,7 @@ export async function askAgent(question: string): Promise<AskAgentResult> {
     { role: 'user', content: question },
   ]
   const generatedSql: string[] = []
+  const retrieval: RetrievalTrace[] = []
   let inputTokens = 0
   let outputTokens = 0
 
@@ -63,7 +82,7 @@ export async function askAgent(question: string): Promise<AskAgentResult> {
       model: MODEL,
       max_tokens: MAX_TOKENS,
       system: SYSTEM_PROMPT,
-      tools: [RUN_SQL_TOOL, LIST_CATEGORIES_TOOL],
+      tools: [RUN_SQL_TOOL, LIST_CATEGORIES_TOOL, SEARCH_KNOWLEDGE_TOOL],
       messages,
     })
 
@@ -77,13 +96,10 @@ export async function askAgent(question: string): Promise<AskAgentResult> {
         systemPrompt: SYSTEM_PROMPT,
         messages,
         generatedSql,
+        retrieval,
         usage: { inputTokens, outputTokens },
       }
-      await logInteraction({
-        timestamp: new Date().toISOString(),
-        ...result,
-        retrieval: [],
-      })
+      await logInteraction({ timestamp: new Date().toISOString(), ...result })
       return result
     }
 
@@ -99,6 +115,11 @@ export async function askAgent(question: string): Promise<AskAgentResult> {
           content = JSON.stringify(await runSql(query))
         } else if (block.name === 'listCategories') {
           content = JSON.stringify(await listCategories())
+        } else if (block.name === 'searchKnowledge') {
+          const { query } = block.input as { query: string }
+          const { result, trace } = await searchKnowledge(query)
+          retrieval.push(trace)
+          content = JSON.stringify(result)
         } else {
           throw new Error(`Ismeretlen tool: ${block.name}`)
         }
