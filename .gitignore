@@ -5,6 +5,7 @@ tmp/
 out-tsc/
 .env
 .env.local
+RAG_dev_Claude_Code_CLI_history_20260722.md
 logs/
 *.log
 
