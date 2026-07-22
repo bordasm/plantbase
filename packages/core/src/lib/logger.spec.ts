@@ -14,6 +14,7 @@ function sampleEntry(
     systemPrompt: 'system prompt',
     messages: [],
     generatedSql: [],
+    retrieval: [],
     answer: 'answer',
     usage: { inputTokens: 1, outputTokens: 2 },
     ...overrides,
@@ -58,5 +59,29 @@ describe('logInteraction', () => {
     const [firstPath] = vi.mocked(appendFile).mock.calls[0]
     const [secondPath] = vi.mocked(appendFile).mock.calls[1]
     expect(secondPath).toBe(firstPath)
+  })
+})
+
+describe('logWarning', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.resetModules()
+  })
+
+  it('appends the warning as a JSONL line to logs/warnings.jsonl', async () => {
+    const { logWarning } = await import('./logger.js')
+    const entry = {
+      timestamp: '2026-07-22T00:00:00.000Z',
+      event: 'hyde_failed',
+      message: 'timeout',
+    }
+
+    await logWarning(entry)
+
+    expect(appendFile).toHaveBeenCalledWith(
+      expect.stringMatching(/logs[\\/]warnings\.jsonl$/),
+      `${JSON.stringify(entry)}\n`,
+      'utf-8',
+    )
   })
 })
