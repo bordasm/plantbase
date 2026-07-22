@@ -79,7 +79,11 @@ export async function askAgent(question: string): Promise<AskAgentResult> {
         generatedSql,
         usage: { inputTokens, outputTokens },
       }
-      await logInteraction({ timestamp: new Date().toISOString(), ...result })
+      await logInteraction({
+        timestamp: new Date().toISOString(),
+        ...result,
+        retrieval: [],
+      })
       return result
     }
 
