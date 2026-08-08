@@ -1,6 +1,52 @@
 # Plantbase
 
-Ez a repo az ** AI-ágensfejlesztés az alapoktól ** robot_dreams kurzus egyik elkészítendő feladatát tartalmazza.
+This repo contains an assignment for the **AI Agent Development from the Ground Up** robot_dreams course.
+https://robotdreams.hu/
+
+CLI AI agent that translates a natural-language question into SQL over the plant catalog (`products`), runs it read-only, and returns a natural-language answer.
+
+Documentation: see the [`docs/`](docs/) folder, to get started:
+
+- [`docs/brs-plantbase.md`](docs/brs-plantbase.md) — business requirements
+- [`docs/stack.md`](docs/stack.md) — tech stack, schema
+- [`docs/architektura.md`](docs/architektura.md) — architecture
+- [`docs/konvenciok.md`](docs/konvenciok.md) — code conventions
+- [`docs/dev-workflow.md`](docs/dev-workflow.md) — git/hook workflow
+- [`docs/implementacios-terv.md`](docs/implementacios-terv.md) — implementation plan (phases)
+- [`docs/superpowers/specs/2026-07-22-rag-pipeline-design.md`](docs/superpowers/specs/2026-07-22-rag-pipeline-design.md) — RAG pipeline design spec (HyDE, rerank, grounding)
+- [`docs/superpowers/plans/2026-07-22-rag-pipeline.md`](docs/superpowers/plans/2026-07-22-rag-pipeline.md) — RAG pipeline implementation plan
+
+## Setting up the knowledge base (RAG)
+
+The `docker compose up -d && prisma migrate deploy && prisma db seed` sequence only loads the `products` catalog. For the `searchKnowledge` agent tool to work (care-guide knowledge base, `knowledge_chunks` table), two more steps are needed:
+
+```bash
+npx nx build core
+cd packages/db && npx tsx prisma/seed-knowledge.ts
+```
+
+Prerequisite: the Postgres image must be `pgvector/pgvector:pg16` (not plain `postgres:16-alpine` — that one doesn't include the pgvector extension; if you're coming from an earlier state, `docker compose up -d` will recreate the container with the new image, and the data persists thanks to the `plantbase_pgdata` volume), and `OPENAI_API_KEY` must be set in `packages/db/.env` (see `packages/db/.env.example`) — Prisma loads the `.env` next to the schema, not the root `.env`.
+
+Without this, the `searchKnowledge` tool runs, but the `knowledge_chunks` table is empty, so it returns `found: false` for every care-related question (the knowledge-base feature stays "seemingly wired up, actually inactive").
+
+## Cost estimate (order of magnitude)
+
+Calculated from an actual production ingestion run (1115 chunks, 202 documents, ~1.24M characters → ~310K tokens) and real CLI logs (the `usage` field in `logs/*.jsonl`), using official Anthropic pricing (Sonnet 5: $3/$15 per 1M input/output tokens; Haiku 4.5: $1/$5 per 1M) and estimated OpenAI "mini"-class pricing (embedding + HyDE, ~$0.02–0.15/1M tokens order of magnitude — the latter is not verified from a live source, informational only):
+
+- **Vectorizing the full knowledge base (ingest):** ~310K tokens × $0.02/1M (`text-embedding-3-small`) ≈ **$0.006** — practically negligible, well under 1 cent.
+- **One question through the full pipeline** (HyDE call + embedding + rerank + answer), using average token counts from real logs (Sonnet: ~7700 in/~900 out; Haiku rerank: ~6200 in/~250 out; HyDE+embed: negligible):
+  - Sonnet (orchestration + final answer): ~$0.024–0.037 (dominated by the answer generation)
+  - Haiku (rerank): ~$0.007
+  - OpenAI (HyDE + embedding): ~$0.0001
+  - **Total: on the order of $0.03–0.05 / question** (roughly 10-20 HUF).
+
+The figure is mostly driven by Sonnet's final-answer call (this accounts for ~70-80% of the cost); rerank is the second-largest item, HyDE+embedding is practically free in comparison.
+
+---
+
+# Plantbase (magyar)
+
+Ez a repo az **AI-ágensfejlesztés az alapoktól** robot_dreams kurzus egyik elkészítendő feladatát tartalmazza.
 https://robotdreams.hu/
 
 CLI AI agent, amely természetes nyelvű kérdést fordít SQL-re a növény-katalógus (`products`) felett, read-only lefuttatja, és természetes nyelvű választ ad.
