@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { AuthProvider, useAuth } from './lib/auth-context.js'
 import { RegisterPage } from './pages/register-page.js'
 import { LoginPage } from './pages/login-page.js'
+import { ChatPage } from './pages/chat-page.js'
 
 function AppContent() {
   const { account, loading } = useAuth()
@@ -17,7 +18,7 @@ function AppContent() {
     )
   }
 
-  return <div className="p-4">Bejelentkezve: {account.salutation}</div>
+  return <ChatPage />
 }
 
 export function App() {
