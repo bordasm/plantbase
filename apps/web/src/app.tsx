@@ -1,4 +1,29 @@
-// ideiglenes placeholder, Task 12-13 cseréli le
+import { useState } from 'react'
+import { AuthProvider, useAuth } from './lib/auth-context.js'
+import { RegisterPage } from './pages/register-page.js'
+import { LoginPage } from './pages/login-page.js'
+
+function AppContent() {
+  const { account, loading } = useAuth()
+  const [view, setView] = useState<'login' | 'register'>('login')
+
+  if (loading) return <div className="p-4">Betöltés...</div>
+
+  if (!account) {
+    return view === 'login' ? (
+      <LoginPage onSwitchToRegister={() => setView('register')} />
+    ) : (
+      <RegisterPage onSwitchToLogin={() => setView('login')} />
+    )
+  }
+
+  return <div className="p-4">Bejelentkezve: {account.salutation}</div>
+}
+
 export function App() {
-  return <div className="p-4">Plantbase</div>
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
+  )
 }
