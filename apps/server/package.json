@@ -73,7 +73,6 @@
     "cookie-parser": "^1.4.7",
     "bcryptjs": "^3.0.2",
     "ai": "^6.0.0",
-    "@ai-sdk/anthropic": "^2.0.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {

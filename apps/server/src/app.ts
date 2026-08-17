@@ -2,6 +2,7 @@ import express, { type Express } from 'express'
 import cookieParser from 'cookie-parser'
 import { attachAccount } from './middleware/session.js'
 import { authRouter } from './routes/auth.js'
+import { chatRouter } from './routes/chat.js'
 
 export function createApp(): Express {
   const app = express()
@@ -9,6 +10,7 @@ export function createApp(): Express {
   app.use(cookieParser())
   app.use(attachAccount)
   app.use(authRouter)
+  app.use(chatRouter)
 
   app.get('/health', (_req, res) => {
     res.json({ status: 'ok' })
