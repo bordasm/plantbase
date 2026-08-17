@@ -8,6 +8,7 @@ export const SESSION_COOKIE_NAME =
   process.env.SESSION_COOKIE_NAME ?? 'plantbase_session'
 
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace -- required: this is TypeScript's ambient global-augmentation pattern for extending Express's Request type, there is no ES2015-module equivalent for it.
   namespace Express {
     interface Request {
       account?: SessionAccount
