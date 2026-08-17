@@ -17,7 +17,6 @@ export default [
           ignoredDependencies: [
             '@plantbase/core',
             '@plantbase/db',
-            'bcryptjs',
             'ai',
             '@ai-sdk/anthropic',
             'zod',
