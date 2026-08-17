@@ -1,6 +1,6 @@
 import { appendFile, mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
-import type Anthropic from '@anthropic-ai/sdk'
+import type { ModelMessage } from 'ai'
 
 export interface RetrievalTrace {
   query: string
@@ -14,7 +14,7 @@ export interface RetrievalTrace {
 export interface InteractionLogEntry {
   timestamp: string
   systemPrompt: string
-  messages: Anthropic.MessageParam[]
+  messages: ModelMessage[]
   generatedSql: string[]
   retrieval: RetrievalTrace[]
   answer: string

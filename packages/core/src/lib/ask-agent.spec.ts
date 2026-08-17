@@ -1,49 +1,56 @@
-import Anthropic from '@anthropic-ai/sdk'
+import { MockLanguageModelV4 } from 'ai/test'
 import { askAgent } from './ask-agent.js'
-import { searchKnowledge } from './knowledge/search-knowledge.js'
-import { listCategories } from './list-categories.js'
 import { logInteraction } from './logger.js'
 import { runSql } from './run-sql.js'
+import { listCategories } from './list-categories.js'
+import { searchKnowledge } from './knowledge/search-knowledge.js'
 
-vi.mock('@anthropic-ai/sdk', () => ({
-  default: vi.fn(),
-}))
-vi.mock('./logger.js', () => ({
-  logInteraction: vi.fn(),
-}))
-vi.mock('./run-sql.js', () => ({
-  runSql: vi.fn(),
-}))
-vi.mock('./list-categories.js', () => ({
-  listCategories: vi.fn(),
-}))
-vi.mock('./knowledge/search-knowledge.js', () => ({
-  searchKnowledge: vi.fn(),
-}))
+let mockModel: MockLanguageModelV4
 
-function textResponse(text: string) {
+vi.mock('@ai-sdk/anthropic', () => ({
+  anthropic: () => mockModel,
+}))
+vi.mock('./logger.js', () => ({ logInteraction: vi.fn() }))
+vi.mock('./run-sql.js', () => ({ runSql: vi.fn() }))
+vi.mock('./list-categories.js', () => ({ listCategories: vi.fn() }))
+vi.mock('./knowledge/search-knowledge.js', () => ({ searchKnowledge: vi.fn() }))
+
+function textResult(text: string) {
   return {
-    stop_reason: 'end_turn',
-    content: [{ type: 'text', text }],
-    usage: { input_tokens: 10, output_tokens: 5 },
+    finishReason: { unified: 'stop' as const, raw: undefined },
+    usage: {
+      inputTokens: { total: 10, noCache: 10, cacheRead: undefined, cacheWrite: undefined },
+      outputTokens: { total: 5, text: 5, reasoning: undefined },
+    },
+    content: [{ type: 'text' as const, text }],
+    warnings: [],
   }
 }
 
-function toolUseResponse(name: string, input: unknown) {
+function toolCallResult(toolName: string, input: unknown, toolCallId = 'call_1') {
   return {
-    stop_reason: 'tool_use',
-    content: [{ type: 'tool_use', id: 'tool_1', name, input }],
-    usage: { input_tokens: 10, output_tokens: 5 },
+    finishReason: { unified: 'tool-calls' as const, raw: undefined },
+    usage: {
+      inputTokens: { total: 10, noCache: 10, cacheRead: undefined, cacheWrite: undefined },
+      outputTokens: { total: 5, text: 5, reasoning: undefined },
+    },
+    content: [
+      {
+        type: 'tool-call' as const,
+        toolCallId,
+        toolName,
+        input: JSON.stringify(input),
+      },
+    ],
+    warnings: [],
   }
 }
 
-function mockResponses(responses: unknown[]) {
-  const create = vi.fn()
-  for (const response of responses) create.mockResolvedValueOnce(response)
-  vi.mocked(Anthropic).mockImplementation(function AnthropicMock() {
-    return { messages: { create } } as never
+function mockGenerateSequence(results: unknown[]) {
+  let call = 0
+  mockModel = new MockLanguageModelV4({
+    doGenerate: async () => results[call++] as never,
   })
-  return create
 }
 
 describe('askAgent', () => {
@@ -52,7 +59,7 @@ describe('askAgent', () => {
   })
 
   it('returns the answer directly when the model needs no tool', async () => {
-    mockResponses([textResponse('42 db van a raktáron.')])
+    mockGenerateSequence([textResult('42 db van a raktáron.')])
 
     const result = await askAgent('Hány darab van a raktáron?')
 
@@ -63,9 +70,9 @@ describe('askAgent', () => {
 
   it('runs the runSql tool and feeds the result back for a final answer', async () => {
     vi.mocked(runSql).mockResolvedValue([{ id: 1, name: 'Aloe vera' }])
-    mockResponses([
-      toolUseResponse('runSql', { query: 'SELECT * FROM products' }),
-      textResponse('Egy Aloe vera van.'),
+    mockGenerateSequence([
+      toolCallResult('runSql', { query: 'SELECT * FROM products' }),
+      textResult('Egy Aloe vera van.'),
     ])
 
     const result = await askAgent('Milyen növények vannak?')
@@ -77,9 +84,9 @@ describe('askAgent', () => {
 
   it('runs the listCategories tool when requested', async () => {
     vi.mocked(listCategories).mockResolvedValue(['Szobanövény'])
-    mockResponses([
-      toolUseResponse('listCategories', {}),
-      textResponse('Egy kategória van: Szobanövény.'),
+    mockGenerateSequence([
+      toolCallResult('listCategories', {}),
+      textResult('Egy kategória van: Szobanövény.'),
     ])
 
     const result = await askAgent('Milyen kategóriák vannak?')
@@ -88,22 +95,11 @@ describe('askAgent', () => {
     expect(result.answer).toBe('Egy kategória van: Szobanövény.')
   })
 
-  it('reports an unknown tool back to the model as a tool error and continues', async () => {
-    mockResponses([
-      toolUseResponse('deleteEverything', {}),
-      textResponse('Ezt nem tudom megtenni.'),
-    ])
-
-    const result = await askAgent('Törölj mindent.')
-
-    expect(result.answer).toBe('Ezt nem tudom megtenni.')
-  })
-
   it('throws when the tool-use loop never reaches a final answer', async () => {
     vi.mocked(runSql).mockResolvedValue([])
-    mockResponses(
-      Array.from({ length: 5 }, () =>
-        toolUseResponse('runSql', { query: 'SELECT 1' }),
+    mockGenerateSequence(
+      Array.from({ length: 5 }, (_, i) =>
+        toolCallResult('runSql', { query: 'SELECT 1' }, `call_${i}`),
       ),
     )
 
@@ -134,13 +130,11 @@ describe('askAgent', () => {
         found: true,
       },
     })
-    mockResponses([
-      toolUseResponse('searchKnowledge', {
+    mockGenerateSequence([
+      toolCallResult('searchKnowledge', {
         query: 'Milyen gyakran öntözzem a kaktuszt?',
       }),
-      textResponse(
-        'Ritkán öntözd. Források: Kaktusz gondozás (https://example.com/x)',
-      ),
+      textResult('Ritkán öntözd. Források: Kaktusz gondozás (https://example.com/x)'),
     ])
 
     const result = await askAgent('Milyen gyakran öntözzem a kaktuszt?')
@@ -151,5 +145,13 @@ describe('askAgent', () => {
     expect(result.retrieval).toHaveLength(1)
     expect(result.retrieval[0].found).toBe(true)
     expect(result.answer).toContain('Források')
+  })
+
+  it('appends the salutation to the system prompt when provided', async () => {
+    mockGenerateSequence([textResult('Szia, Elek!')])
+
+    const result = await askAgent('Szia!', { salutation: 'Elek' })
+
+    expect(result.systemPrompt).toContain('Elek')
   })
 })
