@@ -7,9 +7,11 @@ import {
 export const SESSION_COOKIE_NAME =
   process.env.SESSION_COOKIE_NAME ?? 'plantbase_session'
 
-declare module 'express' {
-  interface Request {
-    account?: SessionAccount
+declare global {
+  namespace Express {
+    interface Request {
+      account?: SessionAccount
+    }
   }
 }
 
