@@ -2,7 +2,10 @@
   "name": "plantbase",
   "version": "0.0.0",
   "license": "MIT",
-  "scripts": {},
+  "scripts": {
+    "dev:server": "nx run server:serve",
+    "dev:web": "nx run web:serve"
+  },
   "private": true,
   "devDependencies": {
     "@eslint/js": "^9.8.0",

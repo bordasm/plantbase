@@ -42,6 +42,17 @@ Calculated from an actual production ingestion run (1115 chunks, 202 documents, 
 
 The figure is mostly driven by Sonnet's final-answer call (this accounts for ~70-80% of the cost); rerank is the second-largest item, HyDE+embedding is practically free in comparison.
 
+## Running the server + web UI (development mode)
+
+In two separate terminals:
+
+```bash
+pnpm dev:server   # Express, http://localhost:3000
+pnpm dev:web      # Vite dev server, http://localhost:4200
+```
+
+The web UI proxies `/api` and `/debug` routes to the server (`apps/web/vite.config.ts`). Sign up for an account, then log in — you can chat with the agent in the browser with streamed responses. The CLI (`pnpm cli ask "..."`) continues to work standalone, without an account.
+
 ---
 
 # Plantbase (magyar)
@@ -87,3 +98,14 @@ A tényleges, éles ingestion-futásból (1115 chunk, 202 dokumentum, ~1,24M kar
   - **Összesen: nagyságrendileg $0,03–0,05 / kérdés** (kb. 10-20 Ft).
 
 A szám nagyrészt a Sonnet végső-válasz hívásától függ (ez adja a költség ~70-80%-át); a rerank a második legnagyobb tétel, a HyDE+embedding gyakorlatilag ingyenes ezekhez képest.
+
+## Szerver + web UI indítása (fejlesztői mód)
+
+Két külön terminálban:
+
+```bash
+pnpm dev:server   # Express, http://localhost:3000
+pnpm dev:web      # Vite dev-szerver, http://localhost:4200
+```
+
+A web UI a `/api` és `/debug` útvonalakat a szerverre proxyzza (`apps/web/vite.config.ts`). Regisztrálj egy fiókot, majd jelentkezz be — az agenttel a böngészőben, streamelt válaszokkal tudsz beszélgetni. A CLI (`pnpm cli ask "..."`) továbbra is külön, fiók nélkül működik.
