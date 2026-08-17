@@ -33,7 +33,10 @@ describe('POST /api/chat', () => {
     })
     vi.mocked(streamAgentResponse).mockReturnValue({
       stream: {
-        pipeUIMessageStreamToResponse: (res: { end: () => void }) => res.end(),
+        pipeUIMessageStreamToResponse: (res: { end: () => void }) => {
+          res.end()
+          return Promise.resolve()
+        },
       },
       trace: { generatedSql: [], retrieval: [] },
     } as never)

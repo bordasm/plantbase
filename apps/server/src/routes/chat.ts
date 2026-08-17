@@ -10,7 +10,7 @@ const ChatRequestSchema = z.object({
 
 export const chatRouter: Router = Router()
 
-chatRouter.post('/api/chat', requireAccount, async (req, res) => {
+chatRouter.post('/api/chat', requireAccount, async (req, res, next) => {
   const parsed = ChatRequestSchema.safeParse(req.body)
   if (!parsed.success) {
     res.status(400).json({ error: 'Érvénytelen kérés.' })
@@ -22,5 +22,11 @@ chatRouter.post('/api/chat', requireAccount, async (req, res) => {
   const { stream } = streamAgentResponse(modelMessages, {
     salutation: req.account?.salutation,
   })
-  stream.pipeUIMessageStreamToResponse(res)
+  // A `pipeUIMessageStreamToResponse` Promise<void>-ot ad vissza (és az
+  // `ai@7.0.66`-ban @deprecated, a következő major verzióban eltávolítják).
+  // Ha a promise elutasul és ez kezeletlen marad, Node alapértelmezett
+  // `--unhandled-rejections=throw` beállítása az EGÉSZ szervert leállítja,
+  // nem csak ezt a kérést — ezért a `next`-nek adjuk a hibát, hogy a
+  // globális `errorHandler` (app.ts) kezelje.
+  void stream.pipeUIMessageStreamToResponse(res).catch(next)
 })

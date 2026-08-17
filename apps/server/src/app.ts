@@ -44,6 +44,11 @@ export function createApp(): Express {
     res.json({ status: 'ok' })
   })
 
+  // FONTOS: ennek az utolsó `app.use`-nak kell lennie. Csak az itt, a
+  // `createApp()`-on BELÜL regisztrált route-okra/middleware-ekre terjed ki
+  // a hibakezelés — ha valaki a `createApp()` visszatérése UTÁN ad hozzá egy
+  // routert a kapott `app`-hoz, azokra ez az `errorHandler` NEM fog
+  // vonatkozni.
   app.use(errorHandler)
 
   return app
