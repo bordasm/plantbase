@@ -53,3 +53,26 @@ model KnowledgeChunk {
 
   @@map("knowledge_chunks")
 }
+
+model Account {
+  id           Int      @id @default(autoincrement())
+  fullName     String   @map("full_name")
+  salutation   String
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  role         String   @default("customer") // customer | staff | admin
+  createdAt    DateTime @default(now()) @map("created_at")
+  sessions     Session[]
+
+  @@map("accounts")
+}
+
+model Session {
+  token     String   @id
+  accountId Int      @map("account_id")
+  account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at")
+  expiresAt DateTime @map("expires_at")
+
+  @@map("sessions")
+}
