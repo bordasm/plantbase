@@ -16,7 +16,6 @@ export default [
           // not yet imported by this task's health-check-only app.ts/main.ts.
           ignoredDependencies: [
             '@plantbase/core',
-            '@plantbase/db',
             'ai',
             '@ai-sdk/anthropic',
             'zod',
