@@ -14,12 +14,7 @@ export default [
           ],
           // Pre-declared for Tasks 5-10 (auth routes, session middleware, chat route),
           // not yet imported by this task's health-check-only app.ts/main.ts.
-          ignoredDependencies: [
-            '@plantbase/core',
-            'ai',
-            '@ai-sdk/anthropic',
-            'zod',
-          ],
+          ignoredDependencies: ['@plantbase/core', 'ai', '@ai-sdk/anthropic'],
         },
       ],
     },
