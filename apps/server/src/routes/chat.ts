@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { streamAgentResponse } from '@plantbase/core'
 import { convertToModelMessages, type UIMessage } from 'ai'
 import { requireAccount } from '../middleware/session.js'
+import { buildOrderActionsForAccount } from '../lib/orders-store.js'
 
 const ChatRequestSchema = z.object({
   messages: z.array(z.unknown()),
@@ -21,6 +22,9 @@ chatRouter.post('/api/chat', requireAccount, async (req, res, next) => {
   const modelMessages = await convertToModelMessages(uiMessages)
   const { stream } = streamAgentResponse(modelMessages, {
     salutation: req.account?.salutation,
+    orderActions: req.account
+      ? buildOrderActionsForAccount(req.account.id)
+      : undefined,
   })
   // A `pipeUIMessageStreamToResponse` Promise<void>-ot ad vissza (és az
   // `ai@7.0.66`-ban @deprecated, a következő major verzióban eltávolítják).
