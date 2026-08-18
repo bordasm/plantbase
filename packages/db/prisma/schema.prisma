@@ -63,6 +63,8 @@ model Account {
   role         String   @default("customer") // customer | staff | admin
   createdAt    DateTime @default(now()) @map("created_at")
   sessions     Session[]
+  orders               Order[]
+  orderAuditLogEntries OrderAuditLog[]
 
   @@map("accounts")
 }
@@ -75,4 +77,44 @@ model Session {
   expiresAt DateTime @map("expires_at")
 
   @@map("sessions")
+}
+
+model Order {
+  orderId           Int             @id @default(autoincrement()) @map("order_id")
+  accountId         Int             @map("account_id")
+  account           Account         @relation(fields: [accountId], references: [id])
+  status            String          @default("új") // új | folyamatban | lemondva | teljesítve
+  orderDesc         String?         @map("order_desc")
+  price             Decimal?        @db.Decimal(10, 2)
+  payed             Boolean         @default(false) // csak staff/admin állítja
+  email             Boolean // kér-e e-mail-értesítést a rendelésről
+  category          String? // szobanövény | kerti | pozsgás | kaktusz | fűszer | fa-cserje | lógó | virágzó
+  location          String? // beltéri | kültéri | mindkettő
+  light             String? // árnyék | alacsony | közepes | erős | direkt nap
+  watering          String? // ritka | közepes | gyakori | állandóan nedves
+  currentHeightCm   Int?            @map("current_height_cm")
+  maxHeightCm       Int?            @map("max_height_cm")
+  currentPotCm      Int?            @map("current_pot_cm")
+  petSafe           Boolean?        @map("pet_safe")
+  kidSafe           Boolean?        @map("kid_safe")
+  airPurifying      Boolean?        @map("air_purifying")
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
+  auditEntries      OrderAuditLog[]
+
+  @@map("orders")
+}
+
+model OrderAuditLog {
+  id           Int      @id @default(autoincrement())
+  orderId      Int      @map("order_id")
+  order        Order    @relation(fields: [orderId], references: [orderId])
+  accountId    Int      @map("account_id")
+  account      Account  @relation(fields: [accountId], references: [id])
+  action       String // created | status_changed | corrected | cancelled
+  previousData Json?    @map("previous_data")
+  newData      Json     @map("new_data")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@map("order_audit_log")
 }
