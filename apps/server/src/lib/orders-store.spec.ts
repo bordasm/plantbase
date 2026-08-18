@@ -64,33 +64,57 @@ describe('buildOrderActionsForAccount', () => {
   it('createOrder creates an order scoped to the account and returns its id', async () => {
     vi.mocked(prisma.$transaction).mockImplementation(async (fn: unknown) => {
       const tx = {
-        order: { create: vi.fn().mockResolvedValue(fakeOrder({ orderId: 42 })) },
+        order: {
+          create: vi.fn().mockResolvedValue(fakeOrder({ orderId: 42 })),
+        },
         orderAuditLog: { create: vi.fn() },
       }
       return (fn as (t: typeof tx) => unknown)(tx)
     })
     const actions = buildOrderActionsForAccount(5)
 
-    const result = await actions.createOrder({ email: true, category: 'kaktusz' })
+    const result = await actions.createOrder({
+      email: true,
+      category: 'kaktusz',
+    })
 
     expect(result).toEqual({ orderId: 42 })
   })
 
   it('cancelOrder refuses to cancel an order belonging to another account', async () => {
-    vi.mocked(prisma.order.findUnique).mockResolvedValue(
-      fakeOrder({ accountId: 999 }) as never,
-    )
+    vi.mocked(prisma.$transaction).mockImplementation(async (fn: unknown) => {
+      const tx = {
+        order: {
+          findUnique: vi.fn().mockResolvedValue(fakeOrder({ accountId: 999 })),
+          update: vi.fn(),
+        },
+        orderAuditLog: { create: vi.fn() },
+      }
+      return (fn as (t: typeof tx) => unknown)(tx)
+    })
     const actions = buildOrderActionsForAccount(5)
 
     const result = await actions.cancelOrder(1)
 
-    expect(result).toEqual({ ok: false, reason: 'Nem található ilyen rendelés.' })
+    expect(result).toEqual({
+      ok: false,
+      reason: 'Nem található ilyen rendelés.',
+    })
   })
 
   it('cancelOrder refuses to cancel an already completed order', async () => {
-    vi.mocked(prisma.order.findUnique).mockResolvedValue(
-      fakeOrder({ status: 'teljesítve' }) as never,
-    )
+    vi.mocked(prisma.$transaction).mockImplementation(async (fn: unknown) => {
+      const tx = {
+        order: {
+          findUnique: vi
+            .fn()
+            .mockResolvedValue(fakeOrder({ status: 'teljesítve' })),
+          update: vi.fn(),
+        },
+        orderAuditLog: { create: vi.fn() },
+      }
+      return (fn as (t: typeof tx) => unknown)(tx)
+    })
     const actions = buildOrderActionsForAccount(5)
 
     const result = await actions.cancelOrder(1)
@@ -102,10 +126,10 @@ describe('buildOrderActionsForAccount', () => {
   })
 
   it('cancelOrder cancels an own new/in-progress order', async () => {
-    vi.mocked(prisma.order.findUnique).mockResolvedValue(fakeOrder() as never)
     vi.mocked(prisma.$transaction).mockImplementation(async (fn: unknown) => {
       const tx = {
         order: {
+          findUnique: vi.fn().mockResolvedValue(fakeOrder()),
           update: vi.fn().mockResolvedValue(fakeOrder({ status: 'lemondva' })),
         },
         orderAuditLog: { create: vi.fn() },
@@ -119,9 +143,40 @@ describe('buildOrderActionsForAccount', () => {
     expect(result).toEqual({ ok: true })
   })
 
+  it('cancelOrder reads the current order inside the transaction (not before it)', async () => {
+    // Ha a lekérdezés a tranzakción kívül, `prisma.order.findUnique`-on
+    // keresztül történne, ez a régi, más account_id-hoz tartozó sort adná
+    // vissza, és a lemondás tévesen sikerülne. A helyes viselkedés csak a
+    // tranzakción belüli, friss `tx.order.findUnique` sort veheti figyelembe.
+    vi.mocked(prisma.order.findUnique).mockResolvedValue(fakeOrder() as never)
+    vi.mocked(prisma.$transaction).mockImplementation(async (fn: unknown) => {
+      const tx = {
+        order: {
+          findUnique: vi
+            .fn()
+            .mockResolvedValue(fakeOrder({ status: 'teljesítve' })),
+          update: vi.fn(),
+        },
+        orderAuditLog: { create: vi.fn() },
+      }
+      return (fn as (t: typeof tx) => unknown)(tx)
+    })
+    const actions = buildOrderActionsForAccount(5)
+
+    const result = await actions.cancelOrder(1)
+
+    expect(result).toEqual({
+      ok: false,
+      reason: 'Ez a rendelés már nem mondható le.',
+    })
+    expect(prisma.order.findUnique).not.toHaveBeenCalled()
+  })
+
   it('listMyOrders only returns orders for the given account and caps at 5', async () => {
     vi.mocked(prisma.order.findMany).mockResolvedValue(
-      Array.from({ length: 6 }, (_, i) => fakeOrder({ orderId: i + 1 })) as never,
+      Array.from({ length: 6 }, (_, i) =>
+        fakeOrder({ orderId: i + 1 }),
+      ) as never,
     )
     const actions = buildOrderActionsForAccount(5)
 
@@ -158,7 +213,7 @@ describe('buildOrderActionsForAccount', () => {
     expect(result).toBeNull()
   })
 
-  it('getOrderByNumber returns the summary for the caller\'s own order', async () => {
+  it("getOrderByNumber returns the summary for the caller's own order", async () => {
     vi.mocked(prisma.order.findUnique).mockResolvedValue(fakeOrder() as never)
     const actions = buildOrderActionsForAccount(5)
 
@@ -213,11 +268,13 @@ describe('staff functions', () => {
   })
 
   it('updateOrderStatus writes an audit entry and returns the updated order', async () => {
-    vi.mocked(prisma.order.findUnique).mockResolvedValue(fakeOrder() as never)
     vi.mocked(prisma.$transaction).mockImplementation(async (fn: unknown) => {
       const tx = {
         order: {
-          update: vi.fn().mockResolvedValue(fakeOrder({ status: 'teljesítve' })),
+          findUnique: vi.fn().mockResolvedValue(fakeOrder()),
+          update: vi
+            .fn()
+            .mockResolvedValue(fakeOrder({ status: 'teljesítve' })),
         },
         orderAuditLog: { create: vi.fn() },
       }
@@ -229,12 +286,33 @@ describe('staff functions', () => {
     expect(result?.status).toBe('teljesítve')
   })
 
-  it('correctOrder writes an audit entry and returns the updated order', async () => {
-    vi.mocked(prisma.order.findUnique).mockResolvedValue(fakeOrder() as never)
+  it('updateOrderStatus returns null for a nonexistent order without writing an audit entry', async () => {
+    const auditCreate = vi.fn()
     vi.mocked(prisma.$transaction).mockImplementation(async (fn: unknown) => {
       const tx = {
         order: {
-          update: vi.fn().mockResolvedValue(fakeOrder({ orderDesc: 'Javított leírás' })),
+          findUnique: vi.fn().mockResolvedValue(null),
+          update: vi.fn(),
+        },
+        orderAuditLog: { create: auditCreate },
+      }
+      return (fn as (t: typeof tx) => unknown)(tx)
+    })
+
+    const result = await updateOrderStatus(9, 999, { status: 'teljesítve' })
+
+    expect(result).toBeNull()
+    expect(auditCreate).not.toHaveBeenCalled()
+  })
+
+  it('correctOrder writes an audit entry and returns the updated order', async () => {
+    vi.mocked(prisma.$transaction).mockImplementation(async (fn: unknown) => {
+      const tx = {
+        order: {
+          findUnique: vi.fn().mockResolvedValue(fakeOrder()),
+          update: vi
+            .fn()
+            .mockResolvedValue(fakeOrder({ orderDesc: 'Javított leírás' })),
         },
         orderAuditLog: { create: vi.fn() },
       }
@@ -244,5 +322,24 @@ describe('staff functions', () => {
     const result = await correctOrder(9, 1, { orderDesc: 'Javított leírás' })
 
     expect(result?.orderDesc).toBe('Javított leírás')
+  })
+
+  it('correctOrder returns null for a nonexistent order without writing an audit entry', async () => {
+    const auditCreate = vi.fn()
+    vi.mocked(prisma.$transaction).mockImplementation(async (fn: unknown) => {
+      const tx = {
+        order: {
+          findUnique: vi.fn().mockResolvedValue(null),
+          update: vi.fn(),
+        },
+        orderAuditLog: { create: auditCreate },
+      }
+      return (fn as (t: typeof tx) => unknown)(tx)
+    })
+
+    const result = await correctOrder(9, 999, { orderDesc: 'x' })
+
+    expect(result).toBeNull()
+    expect(auditCreate).not.toHaveBeenCalled()
   })
 })

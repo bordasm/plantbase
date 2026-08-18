@@ -66,6 +66,19 @@ function toJsonSnapshot(order: OrderRow): JsonSnapshotObject {
   return JSON.parse(JSON.stringify(order)) as JsonSnapshotObject
 }
 
+// Belső, nem exportált sentinel-hibák: a tranzakción belül dobjuk őket, hogy
+// az üzletiszabály-ellenőrzés (pl. jogosultság, státusz) ugyanazt a sort
+// lássa, amelyre az audit-napló previousData mezője is épül — ne külön,
+// tranzakció előtti olvasásból. A hívó a catch ágban alakítja vissza a
+// megszokott { ok: false, reason } / null visszatérési formára.
+class OrderActionRefusal extends Error {
+  constructor(public readonly reason: string) {
+    super(reason)
+  }
+}
+
+class OrderNotFoundForUpdate extends Error {}
+
 function toSummary(order: OrderRow): OrderSummary {
   return {
     orderId: order.orderId,
@@ -133,31 +146,38 @@ export function buildOrderActionsForAccount(accountId: number): OrderActions {
     },
 
     async cancelOrder(orderId: number) {
-      const existing = (await prisma.order.findUnique({
-        where: { orderId },
-      })) as OrderRow | null
-      if (!existing || existing.accountId !== accountId) {
-        return { ok: false, reason: 'Nem található ilyen rendelés.' }
-      }
-      if (!CANCELLABLE_STATUSES.includes(existing.status)) {
-        return { ok: false, reason: 'Ez a rendelés már nem mondható le.' }
-      }
-      await prisma.$transaction(async (tx) => {
-        const updated = await tx.order.update({
-          where: { orderId },
-          data: { status: 'lemondva' },
+      try {
+        await prisma.$transaction(async (tx) => {
+          const existing = (await tx.order.findUnique({
+            where: { orderId },
+          })) as OrderRow | null
+          if (!existing || existing.accountId !== accountId) {
+            throw new OrderActionRefusal('Nem található ilyen rendelés.')
+          }
+          if (!CANCELLABLE_STATUSES.includes(existing.status)) {
+            throw new OrderActionRefusal('Ez a rendelés már nem mondható le.')
+          }
+          const updated = await tx.order.update({
+            where: { orderId },
+            data: { status: 'lemondva' },
+          })
+          await tx.orderAuditLog.create({
+            data: {
+              orderId,
+              accountId,
+              action: 'cancelled',
+              previousData: toJsonSnapshot(existing),
+              newData: updated,
+            },
+          })
         })
-        await tx.orderAuditLog.create({
-          data: {
-            orderId,
-            accountId,
-            action: 'cancelled',
-            previousData: toJsonSnapshot(existing),
-            newData: updated,
-          },
-        })
-      })
-      return { ok: true }
+        return { ok: true }
+      } catch (err) {
+        if (err instanceof OrderActionRefusal) {
+          return { ok: false, reason: err.reason }
+        }
+        throw err
+      }
     },
 
     async listMyOrders(scope: 'all' | 'active') {
@@ -227,24 +247,32 @@ export async function updateOrderStatus(
   orderId: number,
   patch: { status?: string; payed?: boolean },
 ): Promise<StaffOrderDetail | null> {
-  const existing = (await prisma.order.findUnique({
-    where: { orderId },
-  })) as OrderRow | null
-  if (!existing) return null
-  const updated = (await prisma.$transaction(async (tx) => {
-    const result = await tx.order.update({ where: { orderId }, data: patch })
-    await tx.orderAuditLog.create({
-      data: {
-        orderId,
-        accountId: actorAccountId,
-        action: 'status_changed',
-        previousData: toJsonSnapshot(existing),
-        newData: result,
-      },
-    })
-    return result
-  })) as OrderRow
-  return toStaffDetail(updated)
+  try {
+    const updated = (await prisma.$transaction(async (tx) => {
+      const existing = (await tx.order.findUnique({
+        where: { orderId },
+      })) as OrderRow | null
+      if (!existing) throw new OrderNotFoundForUpdate()
+      const result = await tx.order.update({
+        where: { orderId },
+        data: patch,
+      })
+      await tx.orderAuditLog.create({
+        data: {
+          orderId,
+          accountId: actorAccountId,
+          action: 'status_changed',
+          previousData: toJsonSnapshot(existing),
+          newData: result,
+        },
+      })
+      return result
+    })) as OrderRow
+    return toStaffDetail(updated)
+  } catch (err) {
+    if (err instanceof OrderNotFoundForUpdate) return null
+    throw err
+  }
 }
 
 export async function correctOrder(
@@ -252,22 +280,30 @@ export async function correctOrder(
   orderId: number,
   patch: Record<string, unknown>,
 ): Promise<StaffOrderDetail | null> {
-  const existing = (await prisma.order.findUnique({
-    where: { orderId },
-  })) as OrderRow | null
-  if (!existing) return null
-  const updated = (await prisma.$transaction(async (tx) => {
-    const result = await tx.order.update({ where: { orderId }, data: patch })
-    await tx.orderAuditLog.create({
-      data: {
-        orderId,
-        accountId: actorAccountId,
-        action: 'corrected',
-        previousData: toJsonSnapshot(existing),
-        newData: result,
-      },
-    })
-    return result
-  })) as OrderRow
-  return toStaffDetail(updated)
+  try {
+    const updated = (await prisma.$transaction(async (tx) => {
+      const existing = (await tx.order.findUnique({
+        where: { orderId },
+      })) as OrderRow | null
+      if (!existing) throw new OrderNotFoundForUpdate()
+      const result = await tx.order.update({
+        where: { orderId },
+        data: patch,
+      })
+      await tx.orderAuditLog.create({
+        data: {
+          orderId,
+          accountId: actorAccountId,
+          action: 'corrected',
+          previousData: toJsonSnapshot(existing),
+          newData: result,
+        },
+      })
+      return result
+    })) as OrderRow
+    return toStaffDetail(updated)
+  } catch (err) {
+    if (err instanceof OrderNotFoundForUpdate) return null
+    throw err
+  }
 }
