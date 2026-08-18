@@ -41,6 +41,23 @@ model Product {
 // migration.sql) that Prisma's schema DSL cannot represent. Future `prisma
 // migrate dev` runs will detect this as drift and offer to DROP the index —
 // always decline that prompt; it is not a real schema mismatch.
+//
+// CONSEQUENCE (hit twice already: add_accounts_sessions, then add_orders): if
+// you strip an unwanted DROP INDEX out of a migration.sql AFTER it has been
+// applied to a shared dev DB (the only known fix), Prisma's own checksum for
+// that migration no longer matches the file, and any environment/worktree
+// running `prisma migrate dev` against the SAME database will hard-fail with
+// "The migration `<name>` was modified after it was applied." `prisma migrate
+// status` will still correctly report the live schema as up to date — this
+// is a file-checksum integrity check, not real drift. `prisma migrate resolve
+// --applied <name>` does NOT fix this (P3008: only works for a migration
+// Prisma considers unapplied/failed). The only known remedy is `prisma
+// migrate reset` (drops and rebuilds the whole local dev DB, then re-seed
+// products + knowledge_chunks per the README) — confirm real human consent
+// before running it: it is destructive, and Prisma's own CLI enforces this
+// for AI agents via `PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION`, which only
+// accepts consent given directly to the agent invoking the command, never a
+// quote relayed by another agent.
 model KnowledgeChunk {
   id          Int    @id @default(autoincrement())
   source_file String
