@@ -52,7 +52,9 @@ export function StaffOrdersPage() {
   return (
     <div className="mx-auto max-w-4xl p-4">
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-lg font-semibold">Rendelések ({account?.salutation})</h1>
+        <h1 className="text-lg font-semibold">
+          Rendelések ({account?.salutation})
+        </h1>
         <Button variant="outline" size="sm" onClick={handleLogout}>
           Kilépés
         </Button>
@@ -75,7 +77,9 @@ export function StaffOrdersPage() {
       ) : (
         <Card>
           <CardHeader>
-            <span className="text-sm text-gray-500">{orders.length} rendelés</span>
+            <span className="text-sm text-gray-500">
+              {orders.length} rendelés
+            </span>
           </CardHeader>
           <CardContent>
             <table className="w-full text-sm">

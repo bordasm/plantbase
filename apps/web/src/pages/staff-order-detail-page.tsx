@@ -26,10 +26,12 @@ export function StaffOrderDetailPage({
   const [payed, setPayed] = useState(false)
   const [orderDesc, setOrderDesc] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
   async function load() {
-    const { order: fetched, auditLog: fetchedLog } = await getStaffOrder(orderId)
+    const { order: fetched, auditLog: fetchedLog } =
+      await getStaffOrder(orderId)
     setOrder(fetched)
     setAuditLog(fetchedLog)
     setStatus(fetched.status)
@@ -38,7 +40,17 @@ export function StaffOrderDetailPage({
   }
 
   useEffect(() => {
-    void load()
+    async function loadInitial() {
+      setLoadError(null)
+      try {
+        await load()
+      } catch (err) {
+        setLoadError(
+          err instanceof Error ? err.message : 'Ismeretlen hiba történt.',
+        )
+      }
+    }
+    void loadInitial()
   }, [orderId])
 
   async function handleStatusSave() {
@@ -65,6 +77,17 @@ export function StaffOrderDetailPage({
     } finally {
       setSaving(false)
     }
+  }
+
+  if (loadError) {
+    return (
+      <div className="mx-auto max-w-2xl p-4">
+        <Button variant="outline" size="sm" onClick={onBack}>
+          Vissza
+        </Button>
+        <p className="mt-4 text-sm text-red-600">{loadError}</p>
+      </div>
+    )
   }
 
   if (!order) return <div className="p-4">Betöltés...</div>
@@ -116,7 +139,11 @@ export function StaffOrderDetailPage({
               onChange={(e) => setOrderDesc(e.target.value)}
             />
           </div>
-          <Button variant="outline" onClick={handleCorrectionSave} disabled={saving}>
+          <Button
+            variant="outline"
+            onClick={handleCorrectionSave}
+            disabled={saving}
+          >
             Leírás mentése
           </Button>
 

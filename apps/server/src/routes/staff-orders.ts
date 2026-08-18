@@ -43,6 +43,7 @@ const StatusUpdateSchema = z.object({
 const OrderCorrectionSchema = z.object({
   orderDesc: z.string().optional(),
   price: z.number().optional(),
+  email: z.boolean().optional(),
   category: z.enum(CATEGORY_VALUES).optional(),
   location: z.enum(LOCATION_VALUES).optional(),
   light: z.enum(LIGHT_VALUES).optional(),

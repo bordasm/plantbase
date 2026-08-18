@@ -32,7 +32,8 @@ export interface AuditEntry {
 async function parseJsonOrThrow(response: Response): Promise<unknown> {
   const body = await response.json().catch(() => ({}))
   if (!response.ok) {
-    const message = (body as { error?: string }).error ?? 'Ismeretlen hiba történt.'
+    const message =
+      (body as { error?: string }).error ?? 'Ismeretlen hiba történt.'
     throw new Error(message)
   }
   return body
