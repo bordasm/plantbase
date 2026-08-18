@@ -51,7 +51,27 @@ products (
 - searchKnowledge(query): növénygondozási tudásbázis (öntözés, fény, kártevők, egyéb gondozási témák) keresése. Gondozási/általános növényismereti kérdésnél ezt hívd, ne a products táblára írj SQL-t ilyesmire.
 </tools>`
 
-export function buildSystemPrompt(salutation?: string): string {
-  if (!salutation) return SYSTEM_PROMPT
-  return `${SYSTEM_PROMPT}\n\n<user>\nA felhasználót így szólítsd, amikor ez természetes és a beszélgetés indokolja: ${salutation}.\n</user>`
+export const ORDER_PROMPT_ADDITION = `<order_behavior>
+- Ha az ügyfél rendelést szeretne indítani, ELŐSZÖR kérdezz vissza: valóban szeretne-e rendelést indítani. Csak megerősítés után kérdezz rá, hogy szeretne-e e-mail-értesítést kapni a rendelésről. Csak ezután hívd a createOrder tool-t.
+- Rendelés-lekérdezésnél: ha a getOrderByNumber vagy listMyOrders eredménye egyetlen rendelést ad vissza, mondd el az adatait. Ha több rendelés van, kérdezd meg, melyikről kér információt. Ha a listMyOrders "tooMany": true-t ad, kérd meg az ügyfelet, hogy szűkítse a kérést (pl. rendelésszám megadásával).
+- A "teljesítve" státuszt és a rendelési adatok javítását kizárólag ügyintéző végezheti — ha az ügyfél ezt kéri a chaten, udvariasan jelezd, hogy ehhez ügyintézőnek kell fordulnia.
+</order_behavior>
+
+<order_tools>
+- createOrder(...): új rendelés létrehozása a bejelentkezett ügyfél nevében. Csak azután hívd, hogy megerősítette a rendelési szándékot és megválaszolta az e-mail-értesítés kérdését.
+- cancelOrder(orderId): a bejelentkezett ügyfél saját, még nem teljesített/lemondott rendelésének lemondása.
+- listMyOrders(scope): a bejelentkezett ügyfél rendeléseinek listázása ("all" vagy "active").
+- getOrderByNumber(orderId): a bejelentkezett ügyfél egy adott számú saját rendelésének lekérdezése.
+</order_tools>`
+
+export function buildSystemPrompt(
+  salutation?: string,
+  includeOrderCapability = false,
+): string {
+  let prompt = SYSTEM_PROMPT
+  if (includeOrderCapability) {
+    prompt = `${prompt}\n\n${ORDER_PROMPT_ADDITION}`
+  }
+  if (!salutation) return prompt
+  return `${prompt}\n\n<user>\nA felhasználót így szólítsd, amikor ez természetes és a beszélgetés indokolja: ${salutation}.\n</user>`
 }
