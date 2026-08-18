@@ -1,7 +1,11 @@
 import { getReadOnlyPool } from './db-pool.js'
 
+// A halmaz-operátorok (union/intersect/except) azért tiltottak, mert velük
+// egyetlen utasításon belül -- pontosvessző, tehát "több utasítás" nélkül --
+// be lehet csempészni egy második SELECT-et egy másik táblára. A tool jogos,
+// egy-táblás katalógus-lekérdezéseinek soha nincs szükségük ilyesmire.
 const FORBIDDEN_KEYWORDS =
-  /\b(insert|update|delete|drop|alter|truncate|create|grant|revoke|copy|call|do|vacuum|explain)\b/i
+  /\b(insert|update|delete|drop|alter|truncate|create|grant|revoke|copy|call|do|vacuum|explain|union|intersect|except)\b/i
 
 // A runSql tool kizárólag a katalógust szolgálja ki: a products tábla az
 // egyetlen megengedett forrás. A knowledge_chunks NEM tartozik ide -- azt a
@@ -13,7 +17,9 @@ const ALLOWED_TABLES = ['products']
 // az akar lenni: ez másodlagos védelmi réteg az elsődleges, DB-szintű
 // jogosultság-korlátozás mögött (a plantbase_ro szerepkör nem lát rá az
 // orders/order_audit_log táblákra -- lásd a
-// 20260818194644_restrict_readonly_role_to_catalog migrációt).
+// 20260818194644_restrict_readonly_role_to_catalog migrációt --, sem az
+// accounts/sessions táblákra -- lásd a
+// 20260818203503_restrict_readonly_role_from_accounts_sessions migrációt).
 const TABLE_REFERENCE = /\b(?:from|join)\s+([a-z_][\w$]*(?:\.[a-z_][\w$]*)*)/gi
 
 // Explicit tiltólista: ezeket a tábla-neveket sehol nem engedjük szerepelni a
@@ -29,15 +35,107 @@ const TABLE_REFERENCE = /\b(?:from|join)\s+([a-z_][\w$]*(?:\.[a-z_][\w$]*)*)/gi
 const DENYLISTED_TABLES =
   /\b(orders|order_audit_log|accounts|sessions|_prisma_migrations)\b/i
 
+// Egy dollár-idézett string nyitó tag-je (`$$` vagy `$tag$`) a pozíció
+// elején. A `$1` paraméter-helyőrző szándékosan NEM illeszkedik rá.
+const DOLLAR_QUOTE_TAG = /^\$([A-Za-z_][A-Za-z0-9_]*)?\$/
+
 // Komment és string-literál eltávolítása egy munkapéldányból, kizárólag a
 // tábla-név ellenőrzéshez -- a ténylegesen futtatott query stringet ez NEM
 // módosítja. Enélkül egy `FROM/**/accounts` vagy `FROM --x\naccounts` alakú
 // lekérdezés megkerülhetné a `\s+` mintát kereső regexeket.
+//
+// EGYETLEN, balról jobbra haladó menetben dolgozunk, mert a token-fajták
+// sorrendje itt biztonsági kérdés: a korábbi, egymás utáni `.replace()`
+// hívásokból álló változat előbb a kommenteket szedte ki, csak utána a
+// string-literálokat, így két KÜLÖN string-literálba írt `/*` és `*/`
+// részlet közé rejtve el lehetett tüntetni valódi SQL-t a tábla-név
+// scanner elől (élesben kihasznált rés volt:
+// `... WHERE name = '/*' UNION SELECT token FROM accounts WHERE token = '*/'`).
+// A helyes SQL-lexelési szabály az, hogy a string-literál határai
+// ELSŐBBSÉGET élveznek: egy `/*` vagy `--` a literálon belül csak adat.
+// Ezt egyetlen menet tudja garantálni.
+//
+// A lezáratlan literál/komment a query végéig nyel -- ez nem rés, mert az
+// ilyen lekérdezést maga a Postgres is szintaktikai hibával utasítja el.
 function stripCommentsAndStrings(query: string): string {
-  return query
-    .replace(/--[^\n]*/g, ' ')
-    .replace(/\/\*[\s\S]*?\*\//g, ' ')
-    .replace(/'(?:[^']|'')*'/g, "''")
+  let out = ''
+  let i = 0
+
+  while (i < query.length) {
+    const char = query[i]
+    const next = query[i + 1]
+
+    // Sor-komment: `--`-tól a sor végéig.
+    if (char === '-' && next === '-') {
+      const end = query.indexOf('\n', i)
+      i = end === -1 ? query.length : end
+      out += ' '
+      continue
+    }
+
+    // Blokk-komment. A Postgres-ben ezek EGYMÁSBA ÁGYAZHATÓK, ezért a
+    // nyitó/záró párokat számoljuk, nem az első `*/`-nél zárunk.
+    if (char === '/' && next === '*') {
+      let depth = 1
+      i += 2
+      while (i < query.length && depth > 0) {
+        if (query[i] === '/' && query[i + 1] === '*') {
+          depth += 1
+          i += 2
+        } else if (query[i] === '*' && query[i + 1] === '/') {
+          depth -= 1
+          i += 2
+        } else {
+          i += 1
+        }
+      }
+      out += ' '
+      continue
+    }
+
+    // Dollár-idézett string (`$$...$$`, `$tag$...$tag$`): a benne lévő
+    // aposztróf nem nyit literált, ezért külön kell kezelni.
+    if (char === '$') {
+      const tag = DOLLAR_QUOTE_TAG.exec(query.slice(i))?.[0]
+      if (tag) {
+        const end = query.indexOf(tag, i + tag.length)
+        i = end === -1 ? query.length : end + tag.length
+        out += " '' "
+        continue
+      }
+    }
+
+    // Egyszeres idézőjeles string-literál. A `''` a literálon belüli
+    // escape-elt aposztróf; `E'...'` prefix esetén a `\` is escape-el.
+    if (char === "'") {
+      const backslashEscapes =
+        (query[i - 1] === 'e' || query[i - 1] === 'E') &&
+        (i < 2 || !/[\w$]/.test(query[i - 2]))
+      i += 1
+      while (i < query.length) {
+        if (backslashEscapes && query[i] === '\\') {
+          i += 2
+          continue
+        }
+        if (query[i] === "'") {
+          if (query[i + 1] === "'") {
+            i += 2
+            continue
+          }
+          i += 1
+          break
+        }
+        i += 1
+      }
+      out += "''"
+      continue
+    }
+
+    out += char
+    i += 1
+  }
+
+  return out
 }
 
 /**
