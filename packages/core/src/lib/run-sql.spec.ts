@@ -49,6 +49,38 @@ describe('assertSelectOnly', () => {
   it('should reject an empty query', () => {
     expect(() => assertSelectOnly('   ')).toThrow()
   })
+
+  it('should reject a syntactically valid single SELECT against orders', () => {
+    expect(() =>
+      assertSelectOnly('SELECT * FROM orders WHERE account_id = 1 LIMIT 10'),
+    ).toThrow('A lekérdezés csak a következő táblá(k)ra irányulhat: products.')
+  })
+
+  it('should reject a SELECT against order_audit_log', () => {
+    expect(() =>
+      assertSelectOnly('select previous_data from order_audit_log'),
+    ).toThrow('A lekérdezés csak a következő táblá(k)ra irányulhat: products.')
+  })
+
+  it('should reject a JOIN that pulls in a non-allow-listed table', () => {
+    expect(() =>
+      assertSelectOnly(
+        'SELECT p.name FROM products p JOIN orders o ON o.category = p.category',
+      ),
+    ).toThrow('A lekérdezés csak a következő táblá(k)ra irányulhat: products.')
+  })
+
+  it('should reject a schema-qualified reference to a non-allow-listed table', () => {
+    expect(() =>
+      assertSelectOnly('SELECT * FROM public.order_audit_log'),
+    ).toThrow('A lekérdezés csak a következő táblá(k)ra irányulhat: products.')
+  })
+
+  it('should still allow a schema-qualified products query', () => {
+    expect(() =>
+      assertSelectOnly('SELECT name FROM public.products LIMIT 5'),
+    ).not.toThrow()
+  })
 })
 
 describe('runSql', () => {
