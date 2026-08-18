@@ -1,4 +1,4 @@
-import { prisma } from '@plantbase/db'
+import { Prisma, prisma } from '@plantbase/db'
 import {
   buildOrderActionsForAccount,
   listOrdersForStaff,
@@ -7,29 +7,40 @@ import {
   correctOrder,
 } from './orders-store.js'
 
-vi.mock('@plantbase/db', () => ({
-  prisma: {
-    order: {
-      create: vi.fn(),
-      update: vi.fn(),
-      findUnique: vi.fn(),
-      findMany: vi.fn(),
+vi.mock('@plantbase/db', () => {
+  // A valódi Prisma-hiba minimális mása: a retry-logika csak az `instanceof`
+  // ellenőrzést és a `code` mezőt használja belőle. A factory-n belül kell
+  // definiálni, mert a vi.mock hívás a modulszintű deklarációk elé kerül.
+  class PrismaClientKnownRequestError extends Error {
+    constructor(public readonly code: string) {
+      super(code)
+    }
+  }
+  return {
+    Prisma: { PrismaClientKnownRequestError },
+    prisma: {
+      order: {
+        create: vi.fn(),
+        update: vi.fn(),
+        findUnique: vi.fn(),
+        findMany: vi.fn(),
+      },
+      orderAuditLog: {
+        create: vi.fn(),
+        findMany: vi.fn(),
+      },
+      $transaction: vi.fn(async (fn: (tx: unknown) => unknown) =>
+        fn({
+          order: {
+            create: vi.fn(),
+            update: vi.fn(),
+          },
+          orderAuditLog: { create: vi.fn() },
+        }),
+      ),
     },
-    orderAuditLog: {
-      create: vi.fn(),
-      findMany: vi.fn(),
-    },
-    $transaction: vi.fn(async (fn: (tx: unknown) => unknown) =>
-      fn({
-        order: {
-          create: vi.fn(),
-          update: vi.fn(),
-        },
-        orderAuditLog: { create: vi.fn() },
-      }),
-    ),
-  },
-}))
+  }
+})
 
 const NOW = new Date('2026-08-18T10:00:00.000Z')
 
@@ -341,5 +352,158 @@ describe('staff functions', () => {
 
     expect(result).toBeNull()
     expect(auditCreate).not.toHaveBeenCalled()
+  })
+})
+
+describe('write-path isolation and no-op handling', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  function mockTransaction(tx: {
+    order: { findUnique: unknown; update: unknown }
+    orderAuditLog: { create: unknown }
+  }) {
+    vi.mocked(prisma.$transaction).mockImplementation(async (fn: unknown) =>
+      (fn as (t: typeof tx) => unknown)(tx),
+    )
+  }
+
+  it('runs the guarded writes under Serializable isolation', async () => {
+    mockTransaction({
+      order: {
+        findUnique: vi.fn().mockResolvedValue(fakeOrder()),
+        update: vi.fn().mockResolvedValue(fakeOrder({ status: 'teljesítve' })),
+      },
+      orderAuditLog: { create: vi.fn() },
+    })
+
+    await updateOrderStatus(9, 1, { status: 'teljesítve' })
+
+    expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), {
+      isolationLevel: 'Serializable',
+    })
+  })
+
+  it('retries a P2034 write conflict and succeeds on a later attempt', async () => {
+    let attempts = 0
+    vi.mocked(prisma.$transaction).mockImplementation(async (fn: unknown) => {
+      attempts += 1
+      if (attempts < 3) {
+        throw new Prisma.PrismaClientKnownRequestError('P2034')
+      }
+      const tx = {
+        order: {
+          findUnique: vi.fn().mockResolvedValue(fakeOrder()),
+          update: vi.fn().mockResolvedValue(fakeOrder({ status: 'lemondva' })),
+        },
+        orderAuditLog: { create: vi.fn() },
+      }
+      return (fn as (t: typeof tx) => unknown)(tx)
+    })
+
+    const result = await buildOrderActionsForAccount(5).cancelOrder(1)
+
+    expect(result).toEqual({ ok: true })
+    expect(attempts).toBe(3)
+  })
+
+  it('gives up after 3 attempts and rethrows the conflict', async () => {
+    let attempts = 0
+    vi.mocked(prisma.$transaction).mockImplementation(async () => {
+      attempts += 1
+      throw new Prisma.PrismaClientKnownRequestError('P2034')
+    })
+
+    await expect(
+      updateOrderStatus(9, 1, { status: 'lemondva' }),
+    ).rejects.toThrow('P2034')
+    expect(attempts).toBe(3)
+  })
+
+  it('does not retry a business-rule refusal thrown inside the callback', async () => {
+    let attempts = 0
+    vi.mocked(prisma.$transaction).mockImplementation(async (fn: unknown) => {
+      attempts += 1
+      const tx = {
+        order: {
+          findUnique: vi
+            .fn()
+            .mockResolvedValue(fakeOrder({ status: 'teljesítve' })),
+          update: vi.fn(),
+        },
+        orderAuditLog: { create: vi.fn() },
+      }
+      return (fn as (t: typeof tx) => unknown)(tx)
+    })
+
+    const result = await buildOrderActionsForAccount(5).cancelOrder(1)
+
+    expect(result).toEqual({
+      ok: false,
+      reason: 'Ez a rendelés már nem mondható le.',
+    })
+    expect(attempts).toBe(1)
+  })
+
+  it('updateOrderStatus skips the write and the audit row for a no-op patch', async () => {
+    const update = vi.fn()
+    const auditCreate = vi.fn()
+    mockTransaction({
+      order: {
+        findUnique: vi.fn().mockResolvedValue(fakeOrder()),
+        update,
+      },
+      orderAuditLog: { create: auditCreate },
+    })
+
+    const result = await updateOrderStatus(9, 1, {
+      status: 'új',
+      payed: false,
+    })
+
+    expect(update).not.toHaveBeenCalled()
+    expect(auditCreate).not.toHaveBeenCalled()
+    expect(result?.status).toBe('új')
+  })
+
+  it('correctOrder skips the write and the audit row for a no-op patch', async () => {
+    const update = vi.fn()
+    const auditCreate = vi.fn()
+    mockTransaction({
+      order: {
+        findUnique: vi.fn().mockResolvedValue(fakeOrder()),
+        update,
+      },
+      orderAuditLog: { create: auditCreate },
+    })
+
+    const result = await correctOrder(9, 1, {
+      orderDesc: 'Egy kaktusz',
+      price: 4990,
+    })
+
+    expect(update).not.toHaveBeenCalled()
+    expect(auditCreate).not.toHaveBeenCalled()
+    expect(result?.orderDesc).toBe('Egy kaktusz')
+  })
+
+  it('correctOrder still writes when at least one patched field differs', async () => {
+    const update = vi.fn().mockResolvedValue(fakeOrder({ orderDesc: 'Új' }))
+    const auditCreate = vi.fn()
+    mockTransaction({
+      order: {
+        findUnique: vi.fn().mockResolvedValue(fakeOrder()),
+        update,
+      },
+      orderAuditLog: { create: auditCreate },
+    })
+
+    const result = await correctOrder(9, 1, {
+      orderDesc: 'Új',
+      price: 4990,
+    })
+
+    expect(update).toHaveBeenCalled()
+    expect(auditCreate).toHaveBeenCalled()
+    expect(result?.orderDesc).toBe('Új')
   })
 })

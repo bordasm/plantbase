@@ -1,4 +1,4 @@
-import { prisma } from '@plantbase/db'
+import { Prisma, prisma } from '@plantbase/db'
 import type {
   CreateOrderInput,
   OrderActions,
@@ -79,6 +79,56 @@ class OrderActionRefusal extends Error {
 
 class OrderNotFoundForUpdate extends Error {}
 
+const MAX_SERIALIZABLE_ATTEMPTS = 3
+
+/**
+ * READ COMMITTED alatt a tranzakción belüli olvasás sem teszi atomivá az
+ * "olvas-ellenőriz-ír" hármast: a sorzár feloldása után a Postgres az UPDATE
+ * feltételét (EvalPlanQual) az ÚJ sorverzióra futtatja újra, és mivel a
+ * WHERE csak order_id-re szűr, az írás akkor is végigmegy, ha közben egy
+ * párhuzamos tranzakció megváltoztatta a státuszt (pl. egy ügyfél lemondása
+ * visszaírhatna egy időközben "teljesítve" rendelést "lemondva"-ra).
+ * Serializable izoláció mellett a Postgres maga utasítja el az ütköző
+ * tranzakciót (SQLSTATE 40001 -> Prisma P2034), amit itt korlátozott
+ * számban újrapróbálunk.
+ */
+async function runSerializable<T>(
+  fn: (tx: Prisma.TransactionClient) => Promise<T>,
+): Promise<T> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await prisma.$transaction(fn, { isolationLevel: 'Serializable' })
+    } catch (err) {
+      const retryable =
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === 'P2034'
+      if (!retryable || attempt >= MAX_SERIALIZABLE_ATTEMPTS) throw err
+    }
+  }
+}
+
+/**
+ * Igaz, ha a patch egyetlen mezője sem tér el a meglévő sor értékétől --
+ * ilyenkor felesleges írni és audit-sort létrehozni (üres "mentés" gomb).
+ */
+function isNoOpPatch(
+  existing: OrderRow,
+  patch: Record<string, unknown>,
+): boolean {
+  const current = existing as unknown as Record<string, unknown>
+  return Object.keys(patch).every((key) => {
+    const before = current[key]
+    const after = patch[key]
+    if (before === after) return true
+    // A price Prisma Decimal-ként jön vissza, a patch-ben viszont szám van --
+    // referencia szerint sosem egyeznének, ezért numerikusan hasonlítjuk.
+    if (typeof after === 'number' && before !== null && before !== undefined) {
+      return Number(before) === after
+    }
+    return false
+  })
+}
+
 function toSummary(order: OrderRow): OrderSummary {
   return {
     orderId: order.orderId,
@@ -147,7 +197,7 @@ export function buildOrderActionsForAccount(accountId: number): OrderActions {
 
     async cancelOrder(orderId: number) {
       try {
-        await prisma.$transaction(async (tx) => {
+        await runSerializable(async (tx) => {
           const existing = (await tx.order.findUnique({
             where: { orderId },
           })) as OrderRow | null
@@ -248,11 +298,13 @@ export async function updateOrderStatus(
   patch: { status?: string; payed?: boolean },
 ): Promise<StaffOrderDetail | null> {
   try {
-    const updated = (await prisma.$transaction(async (tx) => {
+    const updated = (await runSerializable(async (tx) => {
       const existing = (await tx.order.findUnique({
         where: { orderId },
       })) as OrderRow | null
       if (!existing) throw new OrderNotFoundForUpdate()
+      // Üres mentés: nincs mit írni, és félrevezető audit-sort sem hagyunk.
+      if (isNoOpPatch(existing, patch)) return existing
       const result = await tx.order.update({
         where: { orderId },
         data: patch,
@@ -281,11 +333,13 @@ export async function correctOrder(
   patch: Record<string, unknown>,
 ): Promise<StaffOrderDetail | null> {
   try {
-    const updated = (await prisma.$transaction(async (tx) => {
+    const updated = (await runSerializable(async (tx) => {
       const existing = (await tx.order.findUnique({
         where: { orderId },
       })) as OrderRow | null
       if (!existing) throw new OrderNotFoundForUpdate()
+      // Üres mentés: nincs mit írni, és félrevezető audit-sort sem hagyunk.
+      if (isNoOpPatch(existing, patch)) return existing
       const result = await tx.order.update({
         where: { orderId },
         data: patch,
