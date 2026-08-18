@@ -52,8 +52,9 @@ model Product {
 // is a file-checksum integrity check, not real drift. `prisma migrate resolve
 // --applied <name>` does NOT fix this (P3008: only works for a migration
 // Prisma considers unapplied/failed). The only known remedy is `prisma
-// migrate reset` (drops and rebuilds the whole local dev DB, then re-seed
-// products + knowledge_chunks per the README) — confirm real human consent
+// migrate reset` (drops and rebuilds the whole local dev DB; `products` is
+// re-seeded automatically as part of the reset, but `knowledge_chunks` needs
+// a separate manual re-seed afterward per the README) — confirm real human consent
 // before running it: it is destructive, and Prisma's own CLI enforces this
 // for AI agents via `PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION`, which only
 // accepts consent given directly to the agent invoking the command, never a
