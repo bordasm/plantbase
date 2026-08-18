@@ -81,6 +81,30 @@ describe('assertSelectOnly', () => {
       assertSelectOnly('SELECT name FROM public.products LIMIT 5'),
     ).not.toThrow()
   })
+
+  it('should reject a comma-style FROM list smuggling in a non-allow-listed table', () => {
+    expect(() =>
+      assertSelectOnly('SELECT * FROM products p, accounts a LIMIT 3'),
+    ).toThrow('A lekérdezés csak a következő táblá(k)ra irányulhat: products.')
+  })
+
+  it('should reject a double-quoted identifier', () => {
+    expect(() =>
+      assertSelectOnly('SELECT email FROM "accounts" LIMIT 3'),
+    ).toThrow('A lekérdezés idézőjeles azonosítót nem tartalmazhat.')
+  })
+
+  it('should reject a table name hidden behind a block comment', () => {
+    expect(() => assertSelectOnly('SELECT * FROM/**/accounts')).toThrow(
+      'A lekérdezés csak a következő táblá(k)ra irányulhat: products.',
+    )
+  })
+
+  it('should reject a comma-style FROM list referencing sessions', () => {
+    expect(() =>
+      assertSelectOnly('SELECT * FROM products p, sessions s'),
+    ).toThrow('A lekérdezés csak a következő táblá(k)ra irányulhat: products.')
+  })
 })
 
 describe('runSql', () => {
