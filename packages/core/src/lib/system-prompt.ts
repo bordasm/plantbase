@@ -50,3 +50,8 @@ products (
 - listCategories(): a katalógusban ténylegesen szereplő kategóriák listázása. Ha a felhasználó a kategóriákra vagy a kategóriák listájára kérdez, ezt hívd (ne runSql-t írj rá).
 - searchKnowledge(query): növénygondozási tudásbázis (öntözés, fény, kártevők, egyéb gondozási témák) keresése. Gondozási/általános növényismereti kérdésnél ezt hívd, ne a products táblára írj SQL-t ilyesmire.
 </tools>`
+
+export function buildSystemPrompt(salutation?: string): string {
+  if (!salutation) return SYSTEM_PROMPT
+  return `${SYSTEM_PROMPT}\n\n<user>\nA felhasználót így szólítsd, amikor ez természetes és a beszélgetés indokolja: ${salutation}.\n</user>`
+}
