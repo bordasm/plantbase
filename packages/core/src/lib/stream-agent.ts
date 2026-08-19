@@ -2,12 +2,17 @@ import { anthropic } from '@ai-sdk/anthropic'
 import { streamText, stepCountIs, type ModelMessage } from 'ai'
 import { AGENT_MODEL, MAX_TOOL_ROUNDS, buildAgentTools } from './agent-tools.js'
 import { buildOrderTools, type OrderActions } from './order-tools.js'
+import {
+  buildEscalationTools,
+  type EscalationActions,
+} from './escalation-tools.js'
 import { buildSystemPrompt } from './system-prompt.js'
 import type { RetrievalTrace } from './logger.js'
 
 export interface StreamAgentOptions {
   salutation?: string
   orderActions?: OrderActions
+  escalationActions?: EscalationActions
 }
 
 export interface StreamAgentTrace {
@@ -23,12 +28,16 @@ export function streamAgentResponse(
   const tools = {
     ...buildAgentTools(trace),
     ...(options.orderActions ? buildOrderTools(options.orderActions) : {}),
+    ...(options.escalationActions
+      ? buildEscalationTools(options.escalationActions)
+      : {}),
   }
   const stream = streamText({
     model: anthropic(AGENT_MODEL),
     system: buildSystemPrompt(
       options.salutation,
       Boolean(options.orderActions),
+      Boolean(options.escalationActions),
     ),
     messages,
     stopWhen: stepCountIs(MAX_TOOL_ROUNDS),

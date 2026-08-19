@@ -70,13 +70,26 @@ export const ORDER_PROMPT_ADDITION = `<order_behavior>
 - getOrderByNumber(orderId): a bejelentkezett ügyfél egy adott számú saját rendelésének lekérdezése.
 </order_tools>`
 
+export const ESCALATION_PROMPT_ADDITION = `<escalation_behavior>
+- Ha a felhasználó kérése a Plantbase funkciójához kapcsolódik, de nem tudsz rá válaszolni vagy nem tudod elvégezni (nincs hozzá tool-od, a kérés a képességeiden túlmutat, vagy kifejezetten emberi ügyintézőt kér), udvariasan közöld, hogy továbbítod az ügyet egy ügyintézőhöz, majd hívd az escalateToStaff tool-t egy rövid, tényszerű összefoglalóval.
+- Ne hívd az escalateToStaff-ot off-topic kérdésekre — csak akkor, ha a kérés a Plantbase funkciójához tartozna, de te nem tudtad megoldani.
+</escalation_behavior>
+
+<escalation_tools>
+- escalateToStaff(summary): a bejelentkezett ügyfél ügyének továbbítása ügyintézőhöz — rövid, tényszerű összefoglalót adj át arról, mit kért az ügyfél és miért nem tudtál segíteni.
+</escalation_tools>`
+
 export function buildSystemPrompt(
   salutation?: string,
   includeOrderCapability = false,
+  includeEscalationCapability = false,
 ): string {
   let prompt = SYSTEM_PROMPT
   if (includeOrderCapability) {
     prompt = `${prompt}\n\n${ORDER_PROMPT_ADDITION}`
+  }
+  if (includeEscalationCapability) {
+    prompt = `${prompt}\n\n${ESCALATION_PROMPT_ADDITION}`
   }
   if (!salutation) return prompt
   return `${prompt}\n\n<user>\nA felhasználót így szólítsd, amikor ez természetes és a beszélgetés indokolja: ${salutation}.\n</user>`

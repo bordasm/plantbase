@@ -1,6 +1,7 @@
 export * from './lib/ask-agent.js'
 export * from './lib/stream-agent.js'
 export * from './lib/order-tools.js'
+export * from './lib/escalation-tools.js'
 export * from './lib/email/send-simulated-email.js'
 export * from './lib/email/compose-order-email.js'
 export * from './lib/knowledge/clean.js'
