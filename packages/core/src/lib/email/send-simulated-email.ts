@@ -23,11 +23,11 @@ export interface SimulatedEmailResult {
 }
 
 function slugify(label: string): string {
-  const normalized = label
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-  const slug = normalized.replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')
+  const normalized = label.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+  const slug = normalized
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 80)
   return slug || 'ismeretlen'
 }
 

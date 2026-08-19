@@ -120,6 +120,23 @@ describe('sendSimulatedEmail', () => {
     expect(content).toContain('Törzs szöveg.')
   })
 
+  it('truncates an overlong recipientLabel slug so the write does not fail', async () => {
+    const longLabel = 'A'.repeat(300)
+    const { filePath } = await sendSimulatedEmail({
+      recipientLabel: longLabel,
+      recipientAddress: 'x@example.com',
+      subject: 'S',
+      body: 'B',
+      emailsDir: dir,
+    })
+    const match = /^email_(.+)_\d{8}_\d{4}\.md$/.exec(
+      filePath.slice(dir.length + 1),
+    )
+    expect(match).not.toBeNull()
+    expect(match?.[1].length).toBeLessThanOrEqual(80)
+    await expect(readFile(filePath, 'utf-8')).resolves.toContain('B')
+  })
+
   it('creates the emails directory if it does not exist yet', async () => {
     const nested = join(dir, 'nested', 'path')
     const { filePath } = await sendSimulatedEmail({
