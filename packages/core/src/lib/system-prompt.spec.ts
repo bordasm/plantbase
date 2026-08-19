@@ -52,6 +52,11 @@ describe('SYSTEM_PROMPT', () => {
 
     expect(SYSTEM_PROMPT).toBe(extractXmlBlock(docs))
   })
+
+  it('instructs the agent to redirect off-topic questions', () => {
+    expect(SYSTEM_PROMPT).toContain('<off_topic>')
+    expect(SYSTEM_PROMPT).toContain('nem a Plantbase funkciójához kapcsolódik')
+  })
 })
 
 describe('ORDER_PROMPT_ADDITION', () => {
