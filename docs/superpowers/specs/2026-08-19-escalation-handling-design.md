@@ -15,7 +15,7 @@ A C al-projekt (e-mail-szimuláció) kész, review-val lefedve, és `master`-be 
 
 ## 2. Tervezési döntések
 
-**2.1 — Két, egymástól független viselkedés.** Az off-topic elutasítás (67. sor) és az eszkaláció (68-69. sor) különböző triggerelési feltétellel és különböző mellékhatással bír — a doksi is külön mondatban tárgyalja őket. A doksi maga is elválasztja: off-topic = *"nem a Plantbase funkciójának megfelelő kérdés"* (a téma kívül esik a rendszer hatáskörén, pl. időjárás, politika); eszkaláció = *"olyan valamire, ami a funkciója, nem tud válaszolni"* (a téma releváns, de az agent képességei/eszközei nem elegendők, vagy az ügyfél kifejezetten emberi ügyintézőt kér).
+**2.1 — Két, egymástól független viselkedés.** Az off-topic elutasítás (67. sor) és az eszkaláció (68-69. sor) különböző triggerelési feltétellel és különböző mellékhatással bír — a doksi is külön mondatban tárgyalja őket. A doksi maga is elválasztja: off-topic = _"nem a Plantbase funkciójának megfelelő kérdés"_ (a téma kívül esik a rendszer hatáskörén, pl. időjárás, politika); eszkaláció = _"olyan valamire, ami a funkciója, nem tud válaszolni"_ (a téma releváns, de az agent képességei/eszközei nem elegendők, vagy az ügyfél kifejezetten emberi ügyintézőt kér).
 
 **2.2 — Off-topic: tisztán rendszerprompt-szintű, mindenhol (CLI + web).** Nincs mellékhatása (nincs tool-hívás, nincs e-mail) — az alap `SYSTEM_PROMPT`-ba kerül, nem a csak-bejelentkezett-web-chat-re vonatkozó kiegészítésbe, mert nincs ok kizárni belőle a CLI-t egy tisztán szöveges viselkedésnél.
 
@@ -37,6 +37,7 @@ escalations (
   created_at  timestamptz not null default now()
 )
 ```
+
 Csak `staff`/`admin` olvashatja (mint az `order_audit_log`). Nincs `updated_at`/életciklus-mező — create-only napló, nincs mit módosítani rajta.
 
 **Biztonsági megjegyzés (B/C tanulsága, explicit ellenőrzendő, nem feltételezendő):** B záró code review-ja után a `docker/init-readonly-role.sql`-ből örökölt blanket `ALTER DEFAULT PRIVILEGES` visszavonásra került (`ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE SELECT ON TABLES FROM plantbase_ro`), ami azóta minden ÚJ táblát alapból véd az agent olvasó-szerepkörétől. Ez azt jelenti, hogy az `escalations` táblának ELVILEG nem kell külön `REVOKE`-ot kapnia — de ezt Task 1-ben EMPIRIKUSAN ellenőrizni kell (élő `psql`-lel, `plantbase_ro`-ként), nem feltételezni, mert pontosan ez a feltételezés (hogy egy meglévő védelem lefedi az új esetet is) okozta a B-beli biztonsági incidenst.
@@ -44,6 +45,7 @@ Csak `staff`/`admin` olvashatja (mint az `order_audit_log`). Nincs `updated_at`/
 ## 4. Agent-oldali bővítés (`packages/core`)
 
 **`SYSTEM_PROMPT` bővítés** (`<off_topic>` blokk, az alap prompt része, mindenhol érvényes):
+
 ```
 <off_topic>
 Ha a felhasználó kérdése vagy üzenete nem a Plantbase funkciójához kapcsolódik (nem növény/kertészet/rendelés témájú), udvariasan jelezd, miben tudsz segíteni (növényválasztás, csomag-összeállítás, rendelés-kezelés) — ne próbálj a témán kívüli kérdésre válaszolni.
@@ -51,6 +53,7 @@ Ha a felhasználó kérdése vagy üzenete nem a Plantbase funkciójához kapcso
 ```
 
 **Új `ESCALATION_PROMPT_ADDITION`** (a `stream-agent.ts` fűzi hozzá, csak ha van `escalationActions`, tehát sosem a CLI-n — az `ORDER_PROMPT_ADDITION` mintájára):
+
 ```
 <escalation_behavior>
 Ha a felhasználó kérése a Plantbase funkciójához kapcsolódik, de nem tudsz rá válaszolni vagy nem tudod elvégezni (nincs hozzá tool-od, a kérés a képességeiden túlmutat, vagy kifejezetten emberi ügyintézőt kér), udvariasan közöld, hogy továbbítod az ügyet egy ügyintézőhöz, majd hívd az escalateToStaff tool-t egy rövid, tényszerű összefoglalóval. Ne hívd az escalateToStaff-ot off-topic kérdésekre — csak akkor, ha a kérés a Plantbase funkciójához tartozna, de te nem tudtad megoldani.
@@ -62,16 +65,19 @@ escalateToStaff(summary): a bejelentkezett ügyfél ügyének továbbítása üg
 ```
 
 **`EscalationActions` interfész + `buildEscalationTools`** (`packages/core/src/lib/escalation-tools.ts`, az `order-tools.ts` mintájára):
+
 ```ts
 interface EscalationActions {
   escalate(summary: string): Promise<{ escalationId: number }>
 }
 ```
+
 Egy tool: `escalateToStaff(summary: string)`. A `stream-agent.ts` `StreamAgentOptions` kap egy `escalationActions?: EscalationActions` mezőt, feltételesen adja hozzá a tool-t és a rendszerprompt-bővítést, ugyanúgy, mint `orderActions`-nál.
 
 ## 5. Szerver (`apps/server`)
 
 **`apps/server/src/lib/escalations-store.ts`:**
+
 ```ts
 interface EscalationDetail {
   id: number
@@ -81,10 +87,14 @@ interface EscalationDetail {
   createdAt: string
 }
 
-export function buildEscalationActionsForAccount(accountId: number): EscalationActions {
+export function buildEscalationActionsForAccount(
+  accountId: number,
+): EscalationActions {
   return {
     async escalate(summary: string) {
-      const created = await prisma.escalation.create({ data: { accountId, summary } })
+      const created = await prisma.escalation.create({
+        data: { accountId, summary },
+      })
       notifyEscalation(created.id, accountId, summary)
       return { escalationId: created.id }
     },
@@ -108,9 +118,15 @@ export async function listEscalationsForStaff(): Promise<EscalationDetail[]> {
 ```
 
 **`apps/server/src/lib/escalation-emails.ts`** (a `order-emails.ts` mintájára, de determinisztikus tartalommal, 2.5 szerint — NINCS LLM-hívás):
+
 ```ts
-export function notifyEscalation(escalationId: number, accountId: number, summary: string): void
+export function notifyEscalation(
+  escalationId: number,
+  accountId: number,
+  summary: string,
+): void
 ```
+
 Fiók-lookup (Prisma), fix sablon-tárgy/törzs összeállítása a fiók valódi nevével/e-mail-jével + a `summary`-vel (egyértelműen megjelölve, hogy az agent nem ellenőrzött összefoglalója), `sendSimulatedEmail({ recipientLabel: 'ügyfélszolgálat', recipientAddress: 'ugyfelszolgalat@plantbase.hu', subject, body })` hívása. Fire-and-forget, minden hiba csak logolódik — a C-ben lefektetett minta szerint.
 
 **Staff-only REST végpont:** `GET /api/staff/escalations` (`requireAccount` + `requireRole('staff', 'admin')`), a `listOrdersForStaff`/`GET /api/staff/orders` mintájára.
@@ -143,5 +159,5 @@ Fiók-lookup (Prisma), fix sablon-tárgy/törzs összeállítása a fiók valód
 
 ## 10. Nyitott kérdések a következő al-projektek felé (nem ennek a spec-nek a hatásköre)
 
-- Az E (metrikák) al-projekt esetleg az `escalations` táblát is felhasználhatja hiba-arány méréshez (a doksi 85. sora: *"Legalább egy metrika az agent hibáját mérje"* — az eszkalációk gyakorisága ehhez természetes jelzés).
+- Az E (metrikák) al-projekt esetleg az `escalations` táblát is felhasználhatja hiba-arány méréshez (a doksi 85. sora: _"Legalább egy metrika az agent hibáját mérje"_ — az eszkalációk gyakorisága ehhez természetes jelzés).
 - Az F (adatvédelem/anonimizálás) al-projektnek figyelembe kell vennie, hogy az `escalations.summary` mező szabad szöveg, ami személyes adatot tartalmazhat (az ügyfél panaszának/kérésének tartalma) — ez a jelen specnek nem tárgya.
