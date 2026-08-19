@@ -40,6 +40,13 @@ describe('SYSTEM_PROMPT', () => {
     expect(SYSTEM_PROMPT).toContain('searchKnowledge')
   })
 
+  it('restricts runSql to the products table', () => {
+    expect(SYSTEM_PROMPT).toContain(
+      'CSAK a products táblát kérdezheted le a runSql-lel',
+    )
+    expect(SYSTEM_PROMPT).toContain('kizárólag a products tábla felett')
+  })
+
   it('is a verbatim copy of the ```xml block in docs/system-prompt.md', () => {
     const docs = readFileSync(DOCS_PATH, 'utf-8')
 

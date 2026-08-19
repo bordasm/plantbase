@@ -9,6 +9,7 @@ import { attachAccount } from './middleware/session.js'
 import { authRouter } from './routes/auth.js'
 import { chatRouter } from './routes/chat.js'
 import { debugRouter } from './routes/debug.js'
+import { staffOrdersRouter } from './routes/staff-orders.js'
 
 // Végső hibakezelő middleware: elkapja a route handlerekből dobott vagy
 // elutasított (rejected) hibákat, hogy Express 5 alapértelmezett hibakezelője
@@ -39,6 +40,7 @@ export function createApp(): Express {
   app.use(authRouter)
   app.use(chatRouter)
   app.use(debugRouter)
+  app.use(staffOrdersRouter)
 
   app.get('/health', (_req, res) => {
     res.json({ status: 'ok' })

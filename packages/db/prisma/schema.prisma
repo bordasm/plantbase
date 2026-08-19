@@ -41,6 +41,24 @@ model Product {
 // migration.sql) that Prisma's schema DSL cannot represent. Future `prisma
 // migrate dev` runs will detect this as drift and offer to DROP the index —
 // always decline that prompt; it is not a real schema mismatch.
+//
+// CONSEQUENCE (hit twice already: add_accounts_sessions, then add_orders): if
+// you strip an unwanted DROP INDEX out of a migration.sql AFTER it has been
+// applied to a shared dev DB (the only known fix), Prisma's own checksum for
+// that migration no longer matches the file, and any environment/worktree
+// running `prisma migrate dev` against the SAME database will hard-fail with
+// "The migration `<name>` was modified after it was applied." `prisma migrate
+// status` will still correctly report the live schema as up to date — this
+// is a file-checksum integrity check, not real drift. `prisma migrate resolve
+// --applied <name>` does NOT fix this (P3008: only works for a migration
+// Prisma considers unapplied/failed). The only known remedy is `prisma
+// migrate reset` (drops and rebuilds the whole local dev DB; `products` is
+// re-seeded automatically as part of the reset, but `knowledge_chunks` needs
+// a separate manual re-seed afterward per the README) — confirm real human consent
+// before running it: it is destructive, and Prisma's own CLI enforces this
+// for AI agents via `PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION`, which only
+// accepts consent given directly to the agent invoking the command, never a
+// quote relayed by another agent.
 model KnowledgeChunk {
   id          Int    @id @default(autoincrement())
   source_file String
@@ -63,6 +81,8 @@ model Account {
   role         String   @default("customer") // customer | staff | admin
   createdAt    DateTime @default(now()) @map("created_at")
   sessions     Session[]
+  orders               Order[]
+  orderAuditLogEntries OrderAuditLog[]
 
   @@map("accounts")
 }
@@ -75,4 +95,44 @@ model Session {
   expiresAt DateTime @map("expires_at")
 
   @@map("sessions")
+}
+
+model Order {
+  orderId           Int             @id @default(autoincrement()) @map("order_id")
+  accountId         Int             @map("account_id")
+  account           Account         @relation(fields: [accountId], references: [id])
+  status            String          @default("új") // új | folyamatban | lemondva | teljesítve
+  orderDesc         String?         @map("order_desc")
+  price             Decimal?        @db.Decimal(10, 2)
+  payed             Boolean         @default(false) // csak staff/admin állítja
+  email             Boolean // kér-e e-mail-értesítést a rendelésről
+  category          String? // szobanövény | kerti | pozsgás | kaktusz | fűszer | fa-cserje | lógó | virágzó
+  location          String? // beltéri | kültéri | mindkettő
+  light             String? // árnyék | alacsony | közepes | erős | direkt nap
+  watering          String? // ritka | közepes | gyakori | állandóan nedves
+  currentHeightCm   Int?            @map("current_height_cm")
+  maxHeightCm       Int?            @map("max_height_cm")
+  currentPotCm      Int?            @map("current_pot_cm")
+  petSafe           Boolean?        @map("pet_safe")
+  kidSafe           Boolean?        @map("kid_safe")
+  airPurifying      Boolean?        @map("air_purifying")
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
+  auditEntries      OrderAuditLog[]
+
+  @@map("orders")
+}
+
+model OrderAuditLog {
+  id           Int      @id @default(autoincrement())
+  orderId      Int      @map("order_id")
+  order        Order    @relation(fields: [orderId], references: [orderId])
+  accountId    Int      @map("account_id")
+  account      Account  @relation(fields: [accountId], references: [id])
+  action       String // created | status_changed | corrected | cancelled
+  previousData Json?    @map("previous_data")
+  newData      Json     @map("new_data")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@map("order_audit_log")
 }

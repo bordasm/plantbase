@@ -53,6 +53,16 @@ pnpm dev:web      # Vite dev server, http://localhost:4200
 
 The web UI proxies `/api` and `/debug` routes to the server (`apps/web/vite.config.ts`). Sign up for an account, then log in — you can chat with the agent in the browser with streamed responses. The CLI (`pnpm cli ask "..."`) continues to work standalone, without an account.
 
+### Staff/admin test account (order subsystem)
+
+To test the order-management UI, run the staff seed script:
+
+```bash
+pnpm --filter @plantbase/db exec tsx prisma/seed-staff.ts
+```
+
+This creates a `staff@plantbase.hu` / `Staff1234` and an `admin@plantbase.hu` / `Admin1234` test account. When signed in with these accounts, the web UI displays the order-management interface instead of chat.
+
 ---
 
 # Plantbase (magyar)
@@ -109,3 +119,13 @@ pnpm dev:web      # Vite dev-szerver, http://localhost:4200
 ```
 
 A web UI a `/api` és `/debug` útvonalakat a szerverre proxyzza (`apps/web/vite.config.ts`). Regisztrálj egy fiókot, majd jelentkezz be — az agenttel a böngészőben, streamelt válaszokkal tudsz beszélgetni. A CLI (`pnpm cli ask "..."`) továbbra is külön, fiók nélkül működik.
+
+### Staff/admin teszt-fiók (rendelés-alrendszer)
+
+A rendelés-kezelő felület teszteléséhez futtasd le a staff seed-szkriptet:
+
+```bash
+pnpm --filter @plantbase/db exec tsx prisma/seed-staff.ts
+```
+
+Ez létrehoz egy `staff@plantbase.hu` / `Staff1234` és egy `admin@plantbase.hu` / `Admin1234` teszt-fiókot. Ezekkel bejelentkezve a web UI a chat helyett a rendelés-kezelő felületet mutatja.
