@@ -4,6 +4,7 @@ import type {
   OrderActions,
   OrderSummary,
 } from '@plantbase/core'
+import { notifyOrderEvent } from './order-emails.js'
 
 const MAX_LIST_RESULTS = 5
 const CANCELLABLE_STATUSES = ['új', 'folyamatban']
@@ -192,12 +193,24 @@ export function buildOrderActionsForAccount(accountId: number): OrderActions {
         })
         return created
       })) as OrderRow
+      if (order.email) {
+        notifyOrderEvent(
+          {
+            orderId: order.orderId,
+            status: order.status,
+            orderDesc: order.orderDesc,
+            price: order.price === null ? null : Number(order.price),
+          },
+          accountId,
+          'created',
+        )
+      }
       return { orderId: order.orderId }
     },
 
     async cancelOrder(orderId: number) {
       try {
-        await runSerializable(async (tx) => {
+        const cancelled = await runSerializable(async (tx) => {
           const existing = (await tx.order.findUnique({
             where: { orderId },
           })) as OrderRow | null
@@ -220,7 +233,20 @@ export function buildOrderActionsForAccount(accountId: number): OrderActions {
               newData: updated,
             },
           })
+          return updated as OrderRow
         })
+        if (cancelled.email) {
+          notifyOrderEvent(
+            {
+              orderId: cancelled.orderId,
+              status: cancelled.status,
+              orderDesc: cancelled.orderDesc,
+              price: cancelled.price === null ? null : Number(cancelled.price),
+            },
+            accountId,
+            'cancelled',
+          )
+        }
         return { ok: true }
       } catch (err) {
         if (err instanceof OrderActionRefusal) {
@@ -298,13 +324,13 @@ export async function updateOrderStatus(
   patch: { status?: string; payed?: boolean },
 ): Promise<StaffOrderDetail | null> {
   try {
-    const updated = (await runSerializable(async (tx) => {
+    const { existing, result } = await runSerializable(async (tx) => {
       const existing = (await tx.order.findUnique({
         where: { orderId },
       })) as OrderRow | null
       if (!existing) throw new OrderNotFoundForUpdate()
       // Üres mentés: nincs mit írni, és félrevezető audit-sort sem hagyunk.
-      if (isNoOpPatch(existing, patch)) return existing
+      if (isNoOpPatch(existing, patch)) return { existing, result: existing }
       const result = await tx.order.update({
         where: { orderId },
         data: patch,
@@ -318,9 +344,21 @@ export async function updateOrderStatus(
           newData: result,
         },
       })
-      return result
-    })) as OrderRow
-    return toStaffDetail(updated)
+      return { existing, result: result as OrderRow }
+    })
+    if (existing.status !== result.status && result.email) {
+      notifyOrderEvent(
+        {
+          orderId: result.orderId,
+          status: result.status,
+          orderDesc: result.orderDesc,
+          price: result.price === null ? null : Number(result.price),
+        },
+        result.accountId,
+        'status_changed',
+      )
+    }
+    return toStaffDetail(result)
   } catch (err) {
     if (err instanceof OrderNotFoundForUpdate) return null
     throw err
