@@ -26,7 +26,7 @@ export function buildEscalationActionsForAccount(
 
 export async function listEscalationsForStaff(): Promise<EscalationDetail[]> {
   const escalations = await prisma.escalation.findMany({
-    include: { account: true },
+    include: { account: { select: { fullName: true } } },
     orderBy: { createdAt: 'desc' },
     take: 100,
   })

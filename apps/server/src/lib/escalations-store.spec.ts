@@ -91,7 +91,7 @@ describe('listEscalationsForStaff', () => {
     await listEscalationsForStaff()
 
     expect(prisma.escalation.findMany).toHaveBeenCalledWith({
-      include: { account: true },
+      include: { account: { select: { fullName: true } } },
       orderBy: { createdAt: 'desc' },
       take: 100,
     })
@@ -106,38 +106,36 @@ describe('listEscalationsForStaff', () => {
   })
 
   it('maps escalations to EscalationDetail format with ISO date', async () => {
-    vi.mocked(prisma.escalation.findMany).mockResolvedValue(
-      [
-        fakeEscalation({
-          id: 1,
-          accountId: 5,
-          summary: 'Ügyfél nem tudja megváltani a terméket',
-          account: {
-            id: 5,
-            fullName: 'Nagy Péter',
-            salutation: 'Péter',
-            email: 'peter@example.com',
-            passwordHash: 'hashed',
-            role: 'customer',
-            createdAt: NOW,
-          },
-        }),
-        fakeEscalation({
-          id: 2,
-          accountId: 7,
-          summary: 'Szállítási probléma',
-          account: {
-            id: 7,
-            fullName: 'Szabó Anna',
-            salutation: 'Anna',
-            email: 'anna@example.com',
-            passwordHash: 'hashed',
-            role: 'customer',
-            createdAt: NOW,
-          },
-        }),
-      ] as never,
-    )
+    vi.mocked(prisma.escalation.findMany).mockResolvedValue([
+      fakeEscalation({
+        id: 1,
+        accountId: 5,
+        summary: 'Ügyfél nem tudja megváltani a terméket',
+        account: {
+          id: 5,
+          fullName: 'Nagy Péter',
+          salutation: 'Péter',
+          email: 'peter@example.com',
+          passwordHash: 'hashed',
+          role: 'customer',
+          createdAt: NOW,
+        },
+      }),
+      fakeEscalation({
+        id: 2,
+        accountId: 7,
+        summary: 'Szállítási probléma',
+        account: {
+          id: 7,
+          fullName: 'Szabó Anna',
+          salutation: 'Anna',
+          email: 'anna@example.com',
+          passwordHash: 'hashed',
+          role: 'customer',
+          createdAt: NOW,
+        },
+      }),
+    ] as never)
 
     const result = await listEscalationsForStaff()
 
