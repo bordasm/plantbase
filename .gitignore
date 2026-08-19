@@ -31,3 +31,6 @@ vitest.config.*.timestamp*
 # System
 .DS_Store
 Thumbs.db
+
+# Szimulált e-mail-kimenet (C al-projekt) -- generált tartalom, nem verziókezelt
+emails/*.md
