@@ -75,6 +75,10 @@ describe('ESCALATION_PROMPT_ADDITION', () => {
     expect(ESCALATION_PROMPT_ADDITION).toContain('ügyintézőhöz')
   })
 
+  it('excludes plain no-results cases from escalation', () => {
+    expect(ESCALATION_PROMPT_ADDITION).toContain('Nem eszkalációs eset')
+  })
+
   it('is a verbatim copy of the corresponding ```xml block in docs/system-prompt.md', () => {
     const docs = readFileSync(DOCS_PATH, 'utf-8')
     const match = docs.match(
