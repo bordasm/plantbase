@@ -56,6 +56,21 @@ describe('composeOrderEmail', () => {
     expect(result.body).toContain('lemondta')
   })
 
+  it('logs the LLM error before falling back to the template', async () => {
+    const llmError = new Error('provider outage')
+    vi.mocked(generateObject).mockRejectedValue(llmError)
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    await composeOrderEmail(order, account, 'created')
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining('LLM-hiba'),
+      llmError,
+    )
+    consoleSpy.mockRestore()
+  })
+
   it('fallback template includes price and description when present', async () => {
     vi.mocked(generateObject).mockRejectedValue(new Error('fail'))
 
