@@ -77,6 +77,35 @@ describe('sendSimulatedEmail', () => {
     vi.useRealTimers()
   })
 
+  it('handles concurrent sends for the same recipient without clobbering files (TOCTOU race)', async () => {
+    vi.setSystemTime(new Date(2026, 7, 17, 19, 17))
+    const N = 5
+    const results = await Promise.all(
+      Array.from({ length: N }, (_, i) =>
+        sendSimulatedEmail({
+          recipientLabel: 'Kovács Béla',
+          recipientAddress: 'bela@example.com',
+          subject: `Tárgy ${i}`,
+          body: `Tartalom ${i}`,
+          emailsDir: dir,
+        }),
+      ),
+    )
+    vi.useRealTimers()
+
+    const filePaths = results.map((r) => r.filePath)
+    expect(new Set(filePaths).size).toBe(N)
+
+    const contents = await Promise.all(
+      filePaths.map((p) => readFile(p, 'utf-8')),
+    )
+    const bodies = contents.map((c) => {
+      const match = /Tartalom (\d+)/.exec(c)
+      return match?.[1]
+    })
+    expect(new Set(bodies).size).toBe(N)
+  })
+
   it('writes the expected markdown structure', async () => {
     const { filePath } = await sendSimulatedEmail({
       recipientLabel: 'Teszt Elek',

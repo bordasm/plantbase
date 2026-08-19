@@ -1,4 +1,4 @@
-import { mkdir, writeFile, access } from 'node:fs/promises'
+import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -45,26 +45,23 @@ function formatHumanDateTime(date: Date): string {
   return `${date.getFullYear()}.${pad(date.getMonth() + 1)}.${pad(date.getDate())}. ${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
-async function fileExists(path: string): Promise<boolean> {
-  try {
-    await access(path)
-    return true
-  } catch {
-    return false
-  }
-}
-
-async function resolveAvailableFilePath(
+async function writeFirstAvailable(
   emailsDir: string,
   baseName: string,
+  content: string,
 ): Promise<string> {
-  let candidate = join(emailsDir, `${baseName}.md`)
-  let counter = 2
-  while (await fileExists(candidate)) {
-    candidate = join(emailsDir, `${baseName}_${counter}.md`)
-    counter++
+  for (let counter = 1; ; counter++) {
+    const candidate = join(
+      emailsDir,
+      counter === 1 ? `${baseName}.md` : `${baseName}_${counter}.md`,
+    )
+    try {
+      await writeFile(candidate, content, { encoding: 'utf-8', flag: 'wx' })
+      return candidate
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err
+    }
   }
-  return candidate
 }
 
 export async function sendSimulatedEmail(
@@ -76,7 +73,6 @@ export async function sendSimulatedEmail(
   const baseName = `email_${slug}_${formatFileDateTime(now)}`
 
   await mkdir(emailsDir, { recursive: true })
-  const filePath = await resolveAvailableFilePath(emailsDir, baseName)
 
   const content = `# ${input.subject}
 
@@ -85,6 +81,6 @@ export async function sendSimulatedEmail(
 
 ${input.body}
 `
-  await writeFile(filePath, content, 'utf-8')
+  const filePath = await writeFirstAvailable(emailsDir, baseName, content)
   return { filePath }
 }
