@@ -65,6 +65,7 @@ Ezt a blokkot a `streamAgentResponse` FŰZI HOZZÁ a fenti alap system prompthoz
 ```xml
 <order_behavior>
 - Ha az ügyfél rendelést szeretne indítani, ELŐSZÖR kérdezz vissza: valóban szeretne-e rendelést indítani. Csak megerősítés után kérdezz rá, hogy szeretne-e e-mail-értesítést kapni a rendelésről. Csak ezután hívd a createOrder tool-t.
+- Sikeres createOrder vagy cancelOrder hívás után, ha az ügyfél a beszélgetés során kért e-mail-értesítést, a válaszodban említsd meg röviden, hogy erről hamarosan e-mail-értesítést is kap.
 - Rendelés-lekérdezésnél: ha a getOrderByNumber vagy listMyOrders eredménye egyetlen rendelést ad vissza, mondd el az adatait. Ha több rendelés van, kérdezd meg, melyikről kér információt. Ha a listMyOrders "tooMany": true-t ad, kérd meg az ügyfelet, hogy szűkítse a kérést (pl. rendelésszám megadásával).
 - A "teljesítve" státuszt és a rendelési adatok javítását kizárólag ügyintéző végezheti — ha az ügyfél ezt kéri a chaten, udvariasan jelezd, hogy ehhez ügyintézőnek kell fordulnia.
 </order_behavior>

@@ -6,6 +6,9 @@ import {
   updateOrderStatus,
   correctOrder,
 } from './orders-store.js'
+import { notifyOrderEvent } from './order-emails.js'
+
+vi.mock('./order-emails.js', () => ({ notifyOrderEvent: vi.fn() }))
 
 vi.mock('@plantbase/db', () => {
   // A valódi Prisma-hiba minimális mása: a retry-logika csak az `instanceof`
@@ -92,6 +95,48 @@ describe('buildOrderActionsForAccount', () => {
     expect(result).toEqual({ orderId: 42 })
   })
 
+  it('createOrder triggers a "created" notification when email is true', async () => {
+    vi.mocked(prisma.$transaction).mockImplementation(async (fn: unknown) => {
+      const tx = {
+        order: {
+          create: vi
+            .fn()
+            .mockResolvedValue(fakeOrder({ orderId: 42, email: true })),
+        },
+        orderAuditLog: { create: vi.fn() },
+      }
+      return (fn as (t: typeof tx) => unknown)(tx)
+    })
+    const actions = buildOrderActionsForAccount(5)
+
+    await actions.createOrder({ email: true, category: 'kaktusz' })
+
+    expect(notifyOrderEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ orderId: 42 }),
+      5,
+      'created',
+    )
+  })
+
+  it('createOrder does not notify when email is false', async () => {
+    vi.mocked(prisma.$transaction).mockImplementation(async (fn: unknown) => {
+      const tx = {
+        order: {
+          create: vi
+            .fn()
+            .mockResolvedValue(fakeOrder({ orderId: 43, email: false })),
+        },
+        orderAuditLog: { create: vi.fn() },
+      }
+      return (fn as (t: typeof tx) => unknown)(tx)
+    })
+    const actions = buildOrderActionsForAccount(5)
+
+    await actions.createOrder({ email: false, category: 'kaktusz' })
+
+    expect(notifyOrderEvent).not.toHaveBeenCalled()
+  })
+
   it('cancelOrder refuses to cancel an order belonging to another account', async () => {
     vi.mocked(prisma.$transaction).mockImplementation(async (fn: unknown) => {
       const tx = {
@@ -152,6 +197,76 @@ describe('buildOrderActionsForAccount', () => {
     const result = await actions.cancelOrder(1)
 
     expect(result).toEqual({ ok: true })
+  })
+
+  it('cancelOrder triggers a "cancelled" notification when the order has email true', async () => {
+    vi.mocked(prisma.$transaction).mockImplementation(async (fn: unknown) => {
+      const tx = {
+        order: {
+          findUnique: vi.fn().mockResolvedValue(fakeOrder({ email: true })),
+          update: vi
+            .fn()
+            .mockResolvedValue(fakeOrder({ status: 'lemondva', email: true })),
+        },
+        orderAuditLog: { create: vi.fn() },
+      }
+      return (fn as (t: typeof tx) => unknown)(tx)
+    })
+    const actions = buildOrderActionsForAccount(5)
+
+    await actions.cancelOrder(1)
+
+    expect(notifyOrderEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ orderId: 1, status: 'lemondva' }),
+      5,
+      'cancelled',
+    )
+  })
+
+  it('cancelOrder does not notify when the order has email false', async () => {
+    vi.mocked(prisma.$transaction).mockImplementation(async (fn: unknown) => {
+      const tx = {
+        order: {
+          findUnique: vi.fn().mockResolvedValue(fakeOrder({ email: false })),
+          update: vi
+            .fn()
+            .mockResolvedValue(fakeOrder({ status: 'lemondva', email: false })),
+        },
+        orderAuditLog: { create: vi.fn() },
+      }
+      return (fn as (t: typeof tx) => unknown)(tx)
+    })
+    const actions = buildOrderActionsForAccount(5)
+
+    await actions.cancelOrder(1)
+
+    expect(notifyOrderEvent).not.toHaveBeenCalled()
+  })
+
+  it('cancelOrder never notifies on a refused cancellation', async () => {
+    vi.mocked(prisma.$transaction).mockImplementation(async (fn: unknown) => {
+      const tx = {
+        order: {
+          findUnique: vi
+            .fn()
+            .mockResolvedValue(
+              fakeOrder({ status: 'teljesítve', email: true }),
+            ),
+          update: vi.fn(),
+        },
+        orderAuditLog: { create: vi.fn() },
+      }
+      return (fn as (t: typeof tx) => unknown)(tx)
+    })
+    const actions = buildOrderActionsForAccount(5)
+
+    const result = await actions.cancelOrder(1)
+
+    expect(result).toEqual({
+      ok: false,
+      reason: 'Ez a rendelés már nem mondható le.',
+    })
+    expect(notifyOrderEvent).not.toHaveBeenCalled()
   })
 
   it('cancelOrder reads the current order inside the transaction (not before it)', async () => {
@@ -297,6 +412,85 @@ describe('staff functions', () => {
     expect(result?.status).toBe('teljesítve')
   })
 
+  it('updateOrderStatus notifies the order owner (not the actor) on a real status change', async () => {
+    vi.mocked(prisma.$transaction).mockImplementation(async (fn: unknown) => {
+      const tx = {
+        order: {
+          findUnique: vi
+            .fn()
+            .mockResolvedValue(
+              fakeOrder({ status: 'folyamatban', email: true, accountId: 5 }),
+            ),
+          update: vi
+            .fn()
+            .mockResolvedValue(
+              fakeOrder({ status: 'teljesítve', email: true, accountId: 5 }),
+            ),
+        },
+        orderAuditLog: { create: vi.fn() },
+      }
+      return (fn as (t: typeof tx) => unknown)(tx)
+    })
+
+    await updateOrderStatus(9, 1, { status: 'teljesítve' })
+
+    expect(notifyOrderEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ orderId: 1, status: 'teljesítve' }),
+      5,
+      'status_changed',
+    )
+  })
+
+  it('updateOrderStatus does not notify when only payed changes (status unchanged)', async () => {
+    vi.mocked(prisma.$transaction).mockImplementation(async (fn: unknown) => {
+      const tx = {
+        order: {
+          findUnique: vi
+            .fn()
+            .mockResolvedValue(
+              fakeOrder({ status: 'folyamatban', payed: false, email: true }),
+            ),
+          update: vi
+            .fn()
+            .mockResolvedValue(
+              fakeOrder({ status: 'folyamatban', payed: true, email: true }),
+            ),
+        },
+        orderAuditLog: { create: vi.fn() },
+      }
+      return (fn as (t: typeof tx) => unknown)(tx)
+    })
+
+    await updateOrderStatus(9, 1, { payed: true })
+
+    expect(notifyOrderEvent).not.toHaveBeenCalled()
+  })
+
+  it('updateOrderStatus does not notify when the order has email false', async () => {
+    vi.mocked(prisma.$transaction).mockImplementation(async (fn: unknown) => {
+      const tx = {
+        order: {
+          findUnique: vi
+            .fn()
+            .mockResolvedValue(
+              fakeOrder({ status: 'folyamatban', email: false }),
+            ),
+          update: vi
+            .fn()
+            .mockResolvedValue(
+              fakeOrder({ status: 'teljesítve', email: false }),
+            ),
+        },
+        orderAuditLog: { create: vi.fn() },
+      }
+      return (fn as (t: typeof tx) => unknown)(tx)
+    })
+
+    await updateOrderStatus(9, 1, { status: 'teljesítve' })
+
+    expect(notifyOrderEvent).not.toHaveBeenCalled()
+  })
+
   it('updateOrderStatus returns null for a nonexistent order without writing an audit entry', async () => {
     const auditCreate = vi.fn()
     vi.mocked(prisma.$transaction).mockImplementation(async (fn: unknown) => {
@@ -333,6 +527,7 @@ describe('staff functions', () => {
     const result = await correctOrder(9, 1, { orderDesc: 'Javított leírás' })
 
     expect(result?.orderDesc).toBe('Javított leírás')
+    expect(notifyOrderEvent).not.toHaveBeenCalled()
   })
 
   it('correctOrder returns null for a nonexistent order without writing an audit entry', async () => {
@@ -484,6 +679,7 @@ describe('write-path isolation and no-op handling', () => {
     expect(update).not.toHaveBeenCalled()
     expect(auditCreate).not.toHaveBeenCalled()
     expect(result?.orderDesc).toBe('Egy kaktusz')
+    expect(notifyOrderEvent).not.toHaveBeenCalled()
   })
 
   it('correctOrder still writes when at least one patched field differs', async () => {
@@ -505,5 +701,6 @@ describe('write-path isolation and no-op handling', () => {
     expect(update).toHaveBeenCalled()
     expect(auditCreate).toHaveBeenCalled()
     expect(result?.orderDesc).toBe('Új')
+    expect(notifyOrderEvent).not.toHaveBeenCalled()
   })
 })

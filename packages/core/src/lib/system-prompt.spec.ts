@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { SYSTEM_PROMPT } from './system-prompt.js'
+import { SYSTEM_PROMPT, ORDER_PROMPT_ADDITION } from './system-prompt.js'
 
 const DOCS_PATH = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -51,5 +51,11 @@ describe('SYSTEM_PROMPT', () => {
     const docs = readFileSync(DOCS_PATH, 'utf-8')
 
     expect(SYSTEM_PROMPT).toBe(extractXmlBlock(docs))
+  })
+})
+
+describe('ORDER_PROMPT_ADDITION', () => {
+  it('instructs the agent to mention the upcoming notification email', () => {
+    expect(ORDER_PROMPT_ADDITION).toContain('e-mail-értesítést is kap')
   })
 })
