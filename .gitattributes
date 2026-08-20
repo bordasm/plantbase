@@ -1,1 +1,2 @@
 packages/db/prisma/migrations/**/*.sql text eol=lf
+docs/system-prompt.md text eol=lf
