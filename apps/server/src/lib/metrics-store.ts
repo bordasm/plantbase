@@ -25,7 +25,8 @@ export function isBusinessHours(date: Date): boolean {
   const day = date.getDay() // 0 = vasárnap, 6 = szombat
   const hour = date.getHours()
   const isWeekday = day >= 1 && day <= 5
-  const isWorkingHour = hour >= BUSINESS_DAY_START_HOUR && hour < BUSINESS_DAY_END_HOUR
+  const isWorkingHour =
+    hour >= BUSINESS_DAY_START_HOUR && hour < BUSINESS_DAY_END_HOUR
   return isWeekday && isWorkingHour
 }
 

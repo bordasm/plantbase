@@ -52,7 +52,11 @@ describe('computeMetrics', () => {
     expect(result.totalOrders).toBe(2)
     expect(result.totalEscalations).toBe(1)
     expect(result.outOfHours).toEqual({ count: 2, total: 3, percentage: 66.7 })
-    expect(result.escalationRate).toEqual({ count: 1, total: 3, percentage: 33.3 })
+    expect(result.escalationRate).toEqual({
+      count: 1,
+      total: 3,
+      percentage: 33.3,
+    })
   })
 
   it('returns 0 percentages, not NaN, when there are no orders or escalations at all', async () => {
