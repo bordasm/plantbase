@@ -1,7 +1,11 @@
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { SYSTEM_PROMPT, ORDER_PROMPT_ADDITION } from './system-prompt.js'
+import {
+  SYSTEM_PROMPT,
+  ORDER_PROMPT_ADDITION,
+  ESCALATION_PROMPT_ADDITION,
+} from './system-prompt.js'
 
 const DOCS_PATH = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -52,10 +56,39 @@ describe('SYSTEM_PROMPT', () => {
 
     expect(SYSTEM_PROMPT).toBe(extractXmlBlock(docs))
   })
+
+  it('instructs the agent to redirect off-topic questions', () => {
+    expect(SYSTEM_PROMPT).toContain('<off_topic>')
+    expect(SYSTEM_PROMPT).toContain('nem a Plantbase funkciójához kapcsolódik')
+  })
 })
 
 describe('ORDER_PROMPT_ADDITION', () => {
   it('instructs the agent to mention the upcoming notification email', () => {
     expect(ORDER_PROMPT_ADDITION).toContain('e-mail-értesítést is kap')
+  })
+})
+
+describe('ESCALATION_PROMPT_ADDITION', () => {
+  it('instructs the agent to escalate unsolvable in-scope requests', () => {
+    expect(ESCALATION_PROMPT_ADDITION).toContain('escalateToStaff')
+    expect(ESCALATION_PROMPT_ADDITION).toContain('ügyintézőhöz')
+  })
+
+  it('excludes plain no-results cases from escalation', () => {
+    expect(ESCALATION_PROMPT_ADDITION).toContain('Nem eszkalációs eset')
+  })
+
+  it('is a verbatim copy of the corresponding ```xml block in docs/system-prompt.md', () => {
+    const docs = readFileSync(DOCS_PATH, 'utf-8')
+    const match = docs.match(
+      /## Eszkaláció-képesség kiegészítés[\s\S]*?```xml\n([\s\S]*?)```/,
+    )
+    if (!match) {
+      throw new Error(
+        'No escalation ```xml block found under the "Eszkaláció-képesség kiegészítés" heading in docs/system-prompt.md',
+      )
+    }
+    expect(ESCALATION_PROMPT_ADDITION).toBe(match[1].replace(/\n$/, ''))
   })
 })

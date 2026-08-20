@@ -4,6 +4,7 @@ import { streamAgentResponse } from '@plantbase/core'
 import { convertToModelMessages, type UIMessage } from 'ai'
 import { requireAccount } from '../middleware/session.js'
 import { buildOrderActionsForAccount } from '../lib/orders-store.js'
+import { buildEscalationActionsForAccount } from '../lib/escalations-store.js'
 
 const ChatRequestSchema = z.object({
   messages: z.array(z.unknown()),
@@ -24,6 +25,9 @@ chatRouter.post('/api/chat', requireAccount, async (req, res, next) => {
     salutation: req.account?.salutation,
     orderActions: req.account
       ? buildOrderActionsForAccount(req.account.id)
+      : undefined,
+    escalationActions: req.account
+      ? buildEscalationActionsForAccount(req.account.id)
       : undefined,
   })
   // A `pipeUIMessageStreamToResponse` Promise<void>-ot ad vissza (és az

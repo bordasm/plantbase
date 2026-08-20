@@ -14,6 +14,9 @@ vi.mock('../lib/session-store.js', () => ({
 vi.mock('../lib/orders-store.js', () => ({
   buildOrderActionsForAccount: vi.fn(() => ({ mocked: true })),
 }))
+vi.mock('../lib/escalations-store.js', () => ({
+  buildEscalationActionsForAccount: vi.fn(() => ({ mocked: true })),
+}))
 
 describe('POST /api/chat', () => {
   beforeEach(() => vi.clearAllMocks())
@@ -58,6 +61,7 @@ describe('POST /api/chat', () => {
     expect(options).toEqual({
       salutation: 'Béla',
       orderActions: { mocked: true },
+      escalationActions: { mocked: true },
     })
   })
 

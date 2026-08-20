@@ -77,4 +77,31 @@ describe('streamAgentResponse', () => {
     const withOrders = vi.mocked(streamText).mock.calls[0][0]
     expect(withOrders.system).toContain('createOrder')
   })
+
+  it('does not include escalation tools when escalationActions is not provided', () => {
+    streamAgentResponse([{ role: 'user' as const, content: 'Szia' }])
+    const call = vi.mocked(streamText).mock.calls[0][0]
+    expect(call.tools).not.toHaveProperty('escalateToStaff')
+  })
+
+  it('includes escalation tools when escalationActions is provided', () => {
+    streamAgentResponse([{ role: 'user' as const, content: 'Szia' }], {
+      escalationActions: { escalate: vi.fn() },
+    })
+    const call = vi.mocked(streamText).mock.calls[0][0]
+    expect(call.tools).toHaveProperty('escalateToStaff')
+  })
+
+  it('mentions escalateToStaff in the system prompt only when escalationActions is provided', () => {
+    streamAgentResponse([{ role: 'user' as const, content: 'Szia' }])
+    const without = vi.mocked(streamText).mock.calls[0][0]
+    expect(without.system).not.toContain('escalateToStaff')
+
+    vi.clearAllMocks()
+    streamAgentResponse([{ role: 'user' as const, content: 'Szia' }], {
+      escalationActions: { escalate: vi.fn() },
+    })
+    const withEsc = vi.mocked(streamText).mock.calls[0][0]
+    expect(withEsc.system).toContain('escalateToStaff')
+  })
 })
