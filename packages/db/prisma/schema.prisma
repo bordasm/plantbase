@@ -79,7 +79,8 @@ model Account {
   email        String   @unique
   passwordHash String   @map("password_hash")
   role         String   @default("customer") // customer | staff | admin
-  createdAt    DateTime @default(now()) @map("created_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  anonymizedAt DateTime? @map("anonymized_at")
   sessions     Session[]
   orders               Order[]
   orderAuditLogEntries OrderAuditLog[]
