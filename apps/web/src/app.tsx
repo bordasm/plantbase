@@ -5,10 +5,11 @@ import { LoginPage } from './pages/login-page.js'
 import { ChatPage } from './pages/chat-page.js'
 import { StaffOrdersPage } from './pages/staff-orders-page.js'
 import { StaffEscalationsPage } from './pages/staff-escalations-page.js'
+import { StaffMetricsPage } from './pages/staff-metrics-page.js'
 import { Button } from './components/ui/button.js'
 
 function StaffArea() {
-  const [tab, setTab] = useState<'orders' | 'escalations'>('orders')
+  const [tab, setTab] = useState<'orders' | 'escalations' | 'metrics'>('orders')
 
   return (
     <div>
@@ -27,8 +28,17 @@ function StaffArea() {
         >
           Eszkalációk
         </Button>
+        <Button
+          variant={tab === 'metrics' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setTab('metrics')}
+        >
+          Metrikák
+        </Button>
       </div>
-      {tab === 'orders' ? <StaffOrdersPage /> : <StaffEscalationsPage />}
+      {tab === 'orders' && <StaffOrdersPage />}
+      {tab === 'escalations' && <StaffEscalationsPage />}
+      {tab === 'metrics' && <StaffMetricsPage />}
     </div>
   )
 }
