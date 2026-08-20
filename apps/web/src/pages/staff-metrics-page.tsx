@@ -47,9 +47,9 @@ export function StaffMetricsPage() {
         </Button>
       </div>
       {error && <p className="text-sm text-red-600">{error}</p>}
-      {loading || !metrics ? (
+      {loading ? (
         <p>Betöltés...</p>
-      ) : (
+      ) : metrics ? (
         <div className="grid grid-cols-2 gap-4">
           <Card>
             <CardHeader>
@@ -102,7 +102,7 @@ export function StaffMetricsPage() {
             </CardContent>
           </Card>
         </div>
-      )}
+      ) : null}
     </div>
   )
 }
