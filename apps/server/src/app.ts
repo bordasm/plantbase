@@ -11,6 +11,7 @@ import { chatRouter } from './routes/chat.js'
 import { debugRouter } from './routes/debug.js'
 import { staffOrdersRouter } from './routes/staff-orders.js'
 import { staffEscalationsRouter } from './routes/staff-escalations.js'
+import { staffMetricsRouter } from './routes/staff-metrics.js'
 
 // Végső hibakezelő middleware: elkapja a route handlerekből dobott vagy
 // elutasított (rejected) hibákat, hogy Express 5 alapértelmezett hibakezelője
@@ -43,6 +44,7 @@ export function createApp(): Express {
   app.use(debugRouter)
   app.use(staffOrdersRouter)
   app.use(staffEscalationsRouter)
+  app.use(staffMetricsRouter)
 
   app.get('/health', (_req, res) => {
     res.json({ status: 'ok' })
