@@ -38,7 +38,7 @@ Sikeres `POST /api/staff/accounts/:id/anonymize` a fiók sorát a következőké
 
 - `fullName` → `"Törölt felhasználó #<id>"`
 - `salutation` → `"Ügyfél"` (a megszólítás mezőt is az ügyfél adta meg szabad szövegként — előfordulhat, hogy a saját nevét írta oda, ezért ezt is scrub-olni kell, nem csak a `fullName`-et)
-- `email` → `"anonim-<id>@plantbase.hu"` (determinisztikus, kielégíti az `accounts.email`-en lévő `@unique` megkötést)
+- `email` → `"anonim-<id>-<8 hex karakter>@plantbase.hu"` (a végén egy véletlen 8 hex karakteres suffix, ami kielégíti az `accounts.email`-en lévő `@unique` megkötést, és megakadályozza, hogy egy támadó előre regisztrálja a determinisztikus `anonim-<id>@plantbase.hu` címet, ellehetetlenítve ezzel az adott fiók jövőbeli anonimizálását — a végleges review során talált hiba javítása)
 - `passwordHash` → egy valódi bcrypt-hash egy véletlen, eldobott értékről (a meglévő `hashPassword` segédfüggvénnyel) — a bemenet sosem kerül tárolásra, tehát a bejelentkezés kriptográfiailag lehetetlenné válik, nem csak egy flag-gel van letiltva
 - `anonymizedAt` → `now()`
 - A fiókhoz tartozó ÖSSZES `sessions`-sor törlődik — bármely éppen bejelentkezett munkamenet azonnal megszűnik
