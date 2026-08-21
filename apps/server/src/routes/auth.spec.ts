@@ -1,7 +1,11 @@
 import request from 'supertest'
 import { prisma } from '@plantbase/db'
 import { createApp } from '../app.js'
-import { createSession, deleteSession, getAccountBySessionToken } from '../lib/session-store.js'
+import {
+  createSession,
+  deleteSession,
+  getAccountBySessionToken,
+} from '../lib/session-store.js'
 import { SESSION_COOKIE_NAME } from '../middleware/session.js'
 
 vi.mock('@plantbase/db', () => ({
@@ -108,7 +112,9 @@ describe('POST /api/auth/login', () => {
       salutation: 'Béla',
       email: 'bela@example.com',
       role: 'customer',
-      passwordHash: await (await import('../lib/password.js')).hashPassword('Abcdef12'),
+      passwordHash: await (
+        await import('../lib/password.js')
+      ).hashPassword('Abcdef12'),
     } as never)
     vi.mocked(createSession).mockResolvedValue({
       token: 'tok123',
@@ -126,7 +132,9 @@ describe('POST /api/auth/login', () => {
   it('returns 401 with a generic message for a wrong password', async () => {
     vi.mocked(prisma.account.findUnique).mockResolvedValue({
       id: 1,
-      passwordHash: await (await import('../lib/password.js')).hashPassword('Abcdef12'),
+      passwordHash: await (
+        await import('../lib/password.js')
+      ).hashPassword('Abcdef12'),
     } as never)
 
     const response = await request(createApp())
@@ -143,6 +151,23 @@ describe('POST /api/auth/login', () => {
     const response = await request(createApp())
       .post('/api/auth/login')
       .send({ email: 'unknown@example.com', password: 'Abcdef12' })
+
+    expect(response.status).toBe(401)
+    expect(response.body).toEqual({ error: 'Hibás e-mail vagy jelszó.' })
+  })
+
+  it('returns 401 with the same generic message for an anonymized account', async () => {
+    vi.mocked(prisma.account.findUnique).mockResolvedValue({
+      id: 1,
+      passwordHash: await (
+        await import('../lib/password.js')
+      ).hashPassword('Abcdef12'),
+      anonymizedAt: new Date('2026-08-01'),
+    } as never)
+
+    const response = await request(createApp())
+      .post('/api/auth/login')
+      .send({ email: 'bela@example.com', password: 'Abcdef12' })
 
     expect(response.status).toBe(401)
     expect(response.body).toEqual({ error: 'Hibás e-mail vagy jelszó.' })

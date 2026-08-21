@@ -78,7 +78,11 @@ authRouter.post('/api/auth/login', async (req, res) => {
   const { email, password } = parsed.data
 
   const account = await prisma.account.findUnique({ where: { email } })
-  if (!account || !(await verifyPassword(password, account.passwordHash))) {
+  if (
+    !account ||
+    account.anonymizedAt ||
+    !(await verifyPassword(password, account.passwordHash))
+  ) {
     res.status(401).json({ error: 'Hibás e-mail vagy jelszó.' })
     return
   }
