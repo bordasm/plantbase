@@ -29,6 +29,7 @@ Az E al-projekt (metrikák) kész, review-val lefedve, és `master`-be merge-elv
 ```sql
 alter table accounts add column anonymized_at timestamptz;
 ```
+
 Nincs új tábla — a meglévő `accounts` tábla kap egy nullable mezőt.
 
 ## 4. Anonimizálás — pontos viselkedés
@@ -46,13 +47,14 @@ Sikeres `POST /api/staff/accounts/:id/anonymize` a fiók sorát a következőké
 
 **Bejelentkezés-védelem (defense-in-depth):** a `POST /api/auth/login` explicit ellenőrzi `anonymizedAt`-ot, és — akárcsak rossz jelszónál — ugyanazt az általános "Hibás e-mail vagy jelszó." 401-et adja vissza, sosem külön üzenetet (ami elárulná, hogy az adott e-mail egy anonimizált fiókhoz tartozik).
 
-**Amit szándékosan érintetlenül hagy:** az adott fiókhoz tartozó `orders`/`escalations`/`order_audit_log` sorok megmaradnak — valós üzleti/audit-rekordok, csak többé nem vezetnek vissza valódi névhez/e-mail-hez, miután maga a fiók anonimizálódott. Ez megfelel az anonimizálás/pszeudonimizálás szokásos gyakorlatának: a tranzakció-történet megmarad, csak az azonosító-kapcsolat szűnik meg.
+**Amit szándékosan érintetlenül hagy:** az adott fiókhoz tartozó `orders`/`escalations`/`order_audit_log` sorok megmaradnak — valós üzleti/audit-rekordok, csak többé nem vezetnek vissza valódi névhez/e-mail-hez, miután maga a fiók anonimizálódott. Ez megfelel az anonimizálás/pszeudonimizálás szokásos gyakorlatának: a tranzakció-történet megmarad, csak az azonosító-kapcsolat szűnik meg. Hasonlóképp, a `/emails` könyvtárban korábban keletkezett szimulált e-mail-fájlok is változatlanok maradnak — a bennük szereplő valódi név/e-mail-cím a megőrzési script (6. szakasz) lefutásáig a fájlrendszeren marad.
 
 ## 5. Szerver (`apps/server`)
 
 **`apps/server/src/lib/accounts-store.ts`** — `anonymizeAccount(accountId): Promise<{ ok: true } | { ok: false; reason: string }>` (a `cancelOrder` mintájára: sentinel-hiba a tranzakción belül az "már anonimizálva van" esethez, `{ok:false, reason}`-ra alakítva a hívó felé) + `listAccountsForStaff(): Promise<AccountSummary[]>`.
 
 **Staff-only REST végpontok** (`requireAccount` + `requireRole('staff', 'admin')`):
+
 - `GET /api/staff/accounts` — lista.
 - `POST /api/staff/accounts/:id/anonymize` — anonimizálás indítása.
 

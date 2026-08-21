@@ -1,8 +1,5 @@
 import { prisma } from '@plantbase/db'
-import {
-  anonymizeAccount,
-  listAccountsForStaff,
-} from './accounts-store.js'
+import { anonymizeAccount, listAccountsForStaff } from './accounts-store.js'
 import { hashPassword } from './password.js'
 
 vi.mock('./password.js', () => ({ hashPassword: vi.fn() }))
@@ -56,7 +53,9 @@ describe('anonymizeAccount', () => {
       const tx = {
         account: {
           findUnique: vi.fn().mockResolvedValue(fakeAccount({ id: 5 })),
-          update: vi.fn().mockResolvedValue(fakeAccount({ id: 5, anonymizedAt: NOW })),
+          update: vi
+            .fn()
+            .mockResolvedValue(fakeAccount({ id: 5, anonymizedAt: NOW })),
         },
         session: { deleteMany: vi.fn() },
       }
@@ -89,7 +88,7 @@ describe('anonymizeAccount', () => {
       data: {
         fullName: 'Törölt felhasználó #5',
         salutation: 'Ügyfél',
-        email: 'anonim-5@plantbase.hu',
+        email: expect.stringMatching(/^anonim-5-[0-9a-f]{8}@plantbase\.hu$/),
         passwordHash: 'hashed_random_uuid',
         anonymizedAt: expect.any(Date),
       },

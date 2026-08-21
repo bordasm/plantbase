@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile, utimes } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, writeFile, utimes } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -45,6 +45,20 @@ describe('cleanupOldEmails', () => {
     const deleted = await cleanupOldEmails(dir, 30)
 
     expect(deleted).toEqual([])
+  })
+
+  it('skips directory entries instead of crashing on unlink', async () => {
+    const oldFolder = join(dir, 'old-folder.md')
+    await mkdir(oldFolder)
+    const longAgo = new Date(Date.now() - 100 * 24 * 60 * 60 * 1000)
+    await utimes(oldFolder, longAgo, longAgo).catch(() => {
+      // Egyes fájlrendszereken a könyvtár mtime-ja nem állítható be tetszőlegesen --
+      // ez a teszt szempontjából nem lényeges, a lényeg, hogy a hívás ne dobjon.
+    })
+
+    await expect(cleanupOldEmails(dir, 30)).resolves.not.toContain(
+      'old-folder.md',
+    )
   })
 
   it('returns an empty array if the directory does not exist, without throwing', async () => {

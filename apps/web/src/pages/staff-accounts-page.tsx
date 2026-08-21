@@ -21,9 +21,7 @@ export function StaffAccountsPage() {
     try {
       setAccounts(await listStaffAccounts())
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : 'Ismeretlen hiba történt.',
-      )
+      setError(err instanceof Error ? err.message : 'Ismeretlen hiba történt.')
     } finally {
       setLoading(false)
     }
@@ -45,9 +43,7 @@ export function StaffAccountsPage() {
       await anonymizeStaffAccount(accountId)
       await load()
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : 'Ismeretlen hiba történt.',
-      )
+      setError(err instanceof Error ? err.message : 'Ismeretlen hiba történt.')
     }
   }
 
@@ -97,6 +93,8 @@ export function StaffAccountsPage() {
                     <td className="py-2">
                       {acc.anonymizedAt ? (
                         <span className="text-gray-400">Anonimizálva</span>
+                      ) : acc.id === account?.id ? (
+                        <span className="text-gray-400">Saját fiók</span>
                       ) : (
                         <Button
                           variant="outline"

@@ -4,13 +4,13 @@
 
 ## Külső szolgáltatások
 
-| Szolgáltatás | Modell/API | Mit kap | Melyik kódútvonal |
-| --- | --- | --- | --- |
-| Anthropic API | `claude-sonnet-5` | A teljes chat-beszélgetés (ügyfél üzenetei + agent válaszai + tool-hívások eredményei) | `packages/core/src/lib/stream-agent.ts` (web-chat), `packages/core/src/lib/ask-agent.ts` (CLI) |
-| Anthropic API | `claude-sonnet-5` | Az ügyfél neve/megszólítása + a rendelés adatai (a rendelés-visszaigazoló e-mail összeállításához) | `packages/core/src/lib/email/compose-order-email.ts` |
-| Anthropic API | `claude-haiku-4-5-20251001` | A növénygondozási kérdés szövege + a tudásbázisból ANN-kereséssel előválogatott jelölt szövegrészek tartalma (relevancia-pontozáshoz) | `packages/core/src/lib/knowledge/rerank.ts` (a `search-knowledge.ts` hívja) |
-| OpenAI API | `text-embedding-3-small` | A növénygondozási kérdés szövege (illetve a HyDE-dokumentum szövege — lásd lent), beágyazáshoz | `packages/core/src/lib/knowledge/embed-openai.ts` (a `search-knowledge.ts` hívja) |
-| OpenAI API | `gpt-5-mini` | A növénygondozási kérdés szövege (HyDE lekérdezés-bővítéshez: egy rövid, plauzibilis válaszbekezdés generálása, ami aztán maga kerül beágyazásra a tényleges keresési vektorként) | `packages/core/src/lib/knowledge/hyde.ts` (a `search-knowledge.ts` hívja) |
+| Szolgáltatás  | Modell/API                  | Mit kap                                                                                                                                                                           | Melyik kódútvonal                                                                              |
+| ------------- | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Anthropic API | `claude-sonnet-5`           | A teljes chat-beszélgetés (ügyfél üzenetei + agent válaszai + tool-hívások eredményei)                                                                                            | `packages/core/src/lib/stream-agent.ts` (web-chat), `packages/core/src/lib/ask-agent.ts` (CLI) |
+| Anthropic API | `claude-sonnet-5`           | Az ügyfél neve/megszólítása + a rendelés adatai (a rendelés-visszaigazoló e-mail összeállításához)                                                                                | `packages/core/src/lib/email/compose-order-email.ts`                                           |
+| Anthropic API | `claude-haiku-4-5-20251001` | A növénygondozási kérdés szövege + a tudásbázisból ANN-kereséssel előválogatott jelölt szövegrészek tartalma (relevancia-pontozáshoz)                                             | `packages/core/src/lib/knowledge/rerank.ts` (a `search-knowledge.ts` hívja)                    |
+| OpenAI API    | `text-embedding-3-small`    | A növénygondozási kérdés szövege (illetve a HyDE-dokumentum szövege — lásd lent), beágyazáshoz                                                                                    | `packages/core/src/lib/knowledge/embed-openai.ts` (a `search-knowledge.ts` hívja)              |
+| OpenAI API    | `gpt-5-mini`                | A növénygondozási kérdés szövege (HyDE lekérdezés-bővítéshez: egy rövid, plauzibilis válaszbekezdés generálása, ami aztán maga kerül beágyazásra a tényleges keresési vektorként) | `packages/core/src/lib/knowledge/hyde.ts` (a `search-knowledge.ts` hívja)                      |
 
 Megjegyzés: a beágyazás bemenete valójában nem közvetlenül a felhasználói kérdés, hanem a HyDE-lépés kimenete (sikeres HyDE-hívás esetén) — lásd `packages/core/src/lib/knowledge/search-knowledge.ts`. Ha a HyDE-hívás hibázik, a rendszer a beágyazáshoz visszaesik az eredeti kérdés-szövegre; ha a rerank-hívás hibázik, a rendszer pontszám nélkül, a jelöltek eredeti sorrendje alapján válogat. Mindkét hiba csak logolódik (`logWarning`), a keresés nem áll le miattuk.
 
@@ -26,4 +26,4 @@ A fenti öt hívási pont a teljes lista — a `packages/core/src` (agent-eszkö
 
 ## Anonimizálás / adat-eltűnés
 
-Lásd `docs/superpowers/specs/2026-08-20-privacy-design.md` — staff-indított, irreverzibilis fiók-anonimizálás (`POST /api/staff/accounts/:id/anonymize`) + az `/emails` könyvtár időkorlátos automatikus törlése (`packages/db/prisma/cleanup-old-emails.ts`, alapértelmezetten 30 nap).
+Lásd `docs/superpowers/specs/2026-08-20-privacy-design.md` — staff-indított, irreverzibilis fiók-anonimizálás (`POST /api/staff/accounts/:id/anonymize`) + az `/emails` könyvtár időkorlátos törlése (kézzel vagy külső ütemezővel/cronnal indítható script, nincs beépített időzítő) (`packages/db/prisma/cleanup-old-emails.ts`, alapértelmezetten 30 nap).

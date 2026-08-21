@@ -27,6 +27,7 @@ export async function cleanupOldEmails(
     if (!entry.endsWith('.md')) continue
     const filePath = join(emailsDir, entry)
     const stats = await stat(filePath)
+    if (!stats.isFile()) continue
     if (stats.mtimeMs < cutoff) {
       await unlink(filePath)
       deleted.push(entry)

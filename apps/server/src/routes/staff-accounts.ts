@@ -1,7 +1,10 @@
 import { Router } from 'express'
 import { requireAccount } from '../middleware/session.js'
 import { requireRole } from '../middleware/role.js'
-import { anonymizeAccount, listAccountsForStaff } from '../lib/accounts-store.js'
+import {
+  anonymizeAccount,
+  listAccountsForStaff,
+} from '../lib/accounts-store.js'
 
 function parseAccountId(raw: unknown): number | null {
   if (typeof raw !== 'string') return null
@@ -29,6 +32,10 @@ staffAccountsRouter.post(
     const accountId = parseAccountId(req.params.id)
     if (accountId === null) {
       res.status(400).json({ error: 'Érvénytelen fiók-azonosító.' })
+      return
+    }
+    if (accountId === req.account?.id) {
+      res.status(400).json({ error: 'A saját fiókod nem anonimizálhatod.' })
       return
     }
     const result = await anonymizeAccount(accountId)

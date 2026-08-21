@@ -15,6 +15,12 @@ export type AnonymizeResult = 'ok' | 'not_found' | 'already_anonymized'
 export async function anonymizeAccount(
   accountId: number,
 ): Promise<AnonymizeResult> {
+  // A hash bemenete egy véletlen, sosem tárolt érték -- a jelszó ezután
+  // kriptográfiailag visszafejthetetlen, nem csak egy flag-gel letiltott.
+  // A tranzakción kívül számoljuk ki, hogy a lassú bcrypt hashelés (~0.3-0.6s)
+  // ne tartson nyitva egy adatbázis-tranzakciót.
+  const passwordHash = await hashPassword(randomUUID())
+
   return prisma.$transaction(async (tx) => {
     const existing = await tx.account.findUnique({
       where: { id: accountId },
@@ -22,16 +28,12 @@ export async function anonymizeAccount(
     if (!existing) return 'not_found'
     if (existing.anonymizedAt) return 'already_anonymized'
 
-    // A hash bemenete egy véletlen, sosem tárolt érték -- a jelszó ezután
-    // kriptográfiailag visszafejthetetlen, nem csak egy flag-gel letiltott.
-    const passwordHash = await hashPassword(randomUUID())
-
     await tx.account.update({
       where: { id: accountId },
       data: {
         fullName: `Törölt felhasználó #${accountId}`,
         salutation: 'Ügyfél',
-        email: `anonim-${accountId}@plantbase.hu`,
+        email: `anonim-${accountId}-${randomUUID().slice(0, 8)}@plantbase.hu`,
         passwordHash,
         anonymizedAt: new Date(),
       },

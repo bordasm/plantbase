@@ -2,7 +2,10 @@ import request from 'supertest'
 import { createApp } from '../app.js'
 import { getAccountBySessionToken } from '../lib/session-store.js'
 import { SESSION_COOKIE_NAME } from '../middleware/session.js'
-import { anonymizeAccount, listAccountsForStaff } from '../lib/accounts-store.js'
+import {
+  anonymizeAccount,
+  listAccountsForStaff,
+} from '../lib/accounts-store.js'
 
 vi.mock('../lib/session-store.js', () => ({
   getAccountBySessionToken: vi.fn(),
@@ -87,6 +90,18 @@ describe('POST /api/staff/accounts/:id/anonymize', () => {
       .post('/api/staff/accounts/not-a-number/anonymize')
       .set('Cookie', [`${SESSION_COOKIE_NAME}=tok`])
     expect(response.status).toBe(400)
+  })
+
+  it('returns 400 when a staff account tries to anonymize itself', async () => {
+    vi.mocked(getAccountBySessionToken).mockResolvedValue(STAFF_ACCOUNT)
+    const response = await request(createApp())
+      .post(`/api/staff/accounts/${STAFF_ACCOUNT.id}/anonymize`)
+      .set('Cookie', [`${SESSION_COOKIE_NAME}=tok`])
+    expect(response.status).toBe(400)
+    expect(response.body).toEqual({
+      error: 'A saját fiókod nem anonimizálhatod.',
+    })
+    expect(anonymizeAccount).not.toHaveBeenCalled()
   })
 
   it('returns 404 when the store reports not_found', async () => {
